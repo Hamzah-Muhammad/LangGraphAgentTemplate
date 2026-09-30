@@ -54,3 +54,9 @@ def build_model() -> BaseChatModel:
 def build_fallback_model() -> BaseChatModel | None:
     """Optional second model used when the primary keeps failing. None if not configured."""
     return _model_from_env("FALLBACK_", required=False)
+
+
+def build_grader_model() -> BaseChatModel | None:
+    """Optional model for the evaluator's grader. A different model grades more honestly
+    than the one that wrote the draft. None = reuse the primary with a grader prompt."""
+    return _model_from_env("GRADER_", required=False)

@@ -23,7 +23,7 @@ async def main() -> int:
     results = await run_all(factory, load_cases())
     for r in results:
         mark = "PASS" if r.passed else "FAIL"
-        print(f"{mark}  {r.case.id}  {'; '.join(r.reasons)}")
+        print(f"{mark}  {r.case.id}  tools={r.tools}  {'; '.join(r.reasons)}")
         if not r.passed:
             print(f"      output: {r.output[:200]!r}")
     failed = sum(not r.passed for r in results)

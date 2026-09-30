@@ -1,9 +1,10 @@
 """
 STRUCTURED OUTPUT SCHEMAS
 
-Pydantic models the agent must fill in instead of writing prose.
-Used by the planner graph (Plan) and available for `response_format=` on create_agent
-when a caller needs a typed result (Answer).
+Pydantic models the model must fill in instead of writing prose. Every decision a
+workflow makes from model output goes through one of these, so it can be logged,
+validated and tested. Route and supervisor schemas are built at runtime from the route
+names (see agent/patterns/router.py and supervisor.py).
 """
 
 from pydantic import BaseModel, Field
@@ -13,8 +14,15 @@ class Plan(BaseModel):
     """Break a request into independent sub-tasks that can run in parallel."""
 
     steps: list[str] = Field(
-        description="2-6 self-contained sub-tasks. Each must make sense on its own."
+        description="Self-contained sub-tasks. One step if the request is a single focused ask."
     )
+
+
+class Verdict(BaseModel):
+    """A grader's decision on a draft."""
+
+    passed: bool = Field(description="True only if the draft fully meets the request.")
+    feedback: str = Field(description="What is missing or wrong, and how to fix it.")
 
 
 class Answer(BaseModel):
