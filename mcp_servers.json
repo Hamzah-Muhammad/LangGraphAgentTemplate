@@ -1,0 +1,14 @@
+{
+  "_comment": "MCP servers to expose as tools. Set enabled=true to load. transport: stdio | streamable_http | sse. Keys other than 'enabled' are passed straight to langchain-mcp-adapters.",
+  "filesystem": {
+    "enabled": false,
+    "transport": "stdio",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+  },
+  "remote_example": {
+    "enabled": false,
+    "transport": "streamable_http",
+    "url": "http://localhost:8000/mcp"
+  }
+}

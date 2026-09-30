@@ -14,21 +14,26 @@ from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 
 
-def build_model() -> BaseChatModel:
-    """Return the chat model the agent loop will call."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL")
-    model_name = os.getenv("MODEL_NAME")
-
-    missing = [k for k, v in {
-        "OPENAI_API_KEY": api_key,
-        "OPENAI_BASE_URL": base_url,
-        "MODEL_NAME": model_name,
-    }.items() if not v]
+def _model_from_env(prefix: str, required: bool) -> BaseChatModel | None:
+    api_key = os.getenv(f"{prefix}API_KEY")
+    base_url = os.getenv(f"{prefix}BASE_URL")
+    model_name = os.getenv(f"{prefix}MODEL_NAME")
+    missing = [
+        k
+        for k, v in {
+            f"{prefix}API_KEY": api_key,
+            f"{prefix}BASE_URL": base_url,
+            f"{prefix}MODEL_NAME": model_name,
+        }.items()
+        if not v
+    ]
     if missing:
-        raise RuntimeError(
-            f"Missing env vars: {', '.join(missing)}. Copy .env.example to .env and fill them in."
-        )
+        if required:
+            raise RuntimeError(
+                f"Missing env vars: {', '.join(missing)}. "
+                "Copy .env.example to .env and fill them in."
+            )
+        return None
 
     # model_provider="openai" means "speak the OpenAI wire format", not "use OpenAI".
     return init_chat_model(
@@ -38,3 +43,13 @@ def build_model() -> BaseChatModel:
         base_url=base_url,
         temperature=0,
     )
+
+
+def build_model() -> BaseChatModel:
+    """Primary model. Raises with a clear message if .env is incomplete."""
+    return _model_from_env("OPENAI_", required=True)
+
+
+def build_fallback_model() -> BaseChatModel | None:
+    """Optional second model used when the primary keeps failing. None if not configured."""
+    return _model_from_env("FALLBACK_", required=False)
