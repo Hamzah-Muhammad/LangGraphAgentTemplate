@@ -97,9 +97,16 @@ def build_supervisor_graph(
 
         return run
 
+    def start(state: SupervisorState) -> dict:
+        # The hop cap is per request. Without this reset, a thread that once hit the cap
+        # stops every later request immediately.
+        return {"hops": 0, "instruction": ""}
+
     builder = StateGraph(SupervisorState, context_schema=Context)
+    builder.add_node("start", start)
     builder.add_node("supervisor", supervisor, destinations=names + (END,))
     for name, (_, agent) in team.items():
         builder.add_node(name, specialist(name, agent), destinations=("supervisor",))
-    builder.add_edge(START, "supervisor")
+    builder.add_edge(START, "start")
+    builder.add_edge("start", "supervisor")
     return builder.compile(checkpointer=checkpointer, store=store, name="supervisor")

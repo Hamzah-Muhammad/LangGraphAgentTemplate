@@ -29,7 +29,7 @@ LangGraphAgentTemplate/
 │   │   ├── __init__.py             ALL_TOOLS: register every Python tool here
 │   │   ├── example_tool.py         placeholder tool to copy
 │   │   ├── memory_tools.py         remember / recall, per user (writes to BLOCK 5)
-│   │   ├── files.py                read_file, only inside the offload folder (BLOCK 4)
+│   │   ├── files.py                read_file, only this thread's offloaded results (BLOCK 4)
 │   │   ├── skills.py               load_skill, pulls a skill body (BLOCK 3)
 │   │   └── mcp.py                  loads servers from mcp_servers.json as tools
 │   │
@@ -45,7 +45,7 @@ LangGraphAgentTemplate/
 │   ├── context/                    BLOCK 4  CONTEXT WINDOW: what the model sees
 │   │   ├── __init__.py
 │   │   ├── compaction.py           clear old tool results at 50%, summarize at 60%, todos
-│   │   └── offload.py              tool results over OFFLOAD_CHARS go to a file
+│   │   └── offload.py              tool results over OFFLOAD_CHARS go to a per-thread file
 │   │
 │   ├── memory/                     BLOCK 5  MEMORY: what the agent remembers
 │   │   ├── __init__.py

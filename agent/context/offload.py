@@ -18,22 +18,30 @@ PREVIEW_LINES = 10
 PREVIEW_CHARS = 1_000
 
 
+def thread_folder(config: dict | None) -> str:
+    """Safe folder name for the run's thread_id. Shared by offload and read_file."""
+    thread = ((config or {}).get("configurable") or {}).get("thread_id") or "no-thread"
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", str(thread))[:120]
+
+
 class OffloadLargeToolResults(AgentMiddleware):
     def __init__(self, max_chars: int, directory: str) -> None:
         super().__init__()
         self.max_chars = max_chars
         self.directory = Path(directory)
 
-    def _offload(self, result):
+    def _offload(self, result, request):
         if not isinstance(result, ToolMessage) or not isinstance(result.content, str):
             return result
         content = result.content
         if len(content) <= self.max_chars:
             return result
 
-        self.directory.mkdir(parents=True, exist_ok=True)
+        # One folder per thread: read_file can only see its own thread's results.
+        folder = self.directory / thread_folder(request.runtime.config)
+        folder.mkdir(parents=True, exist_ok=True)
         stem = re.sub(r"[^A-Za-z0-9_.-]", "_", f"{result.name or 'tool'}-{result.tool_call_id}")
-        path = self.directory / f"{stem[:120]}.txt"
+        path = folder / f"{stem[:120]}.txt"
         path.write_text(content, encoding="utf-8")
 
         preview = "\n".join(content.splitlines()[:PREVIEW_LINES])[:PREVIEW_CHARS]
@@ -45,7 +53,7 @@ class OffloadLargeToolResults(AgentMiddleware):
         return result.model_copy(update={"content": notice})
 
     def wrap_tool_call(self, request, handler):
-        return self._offload(handler(request))
+        return self._offload(handler(request), request)
 
     async def awrap_tool_call(self, request, handler):
-        return self._offload(await handler(request))
+        return self._offload(await handler(request), request)

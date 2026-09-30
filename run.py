@@ -40,20 +40,38 @@ from agent.memory.store import open_memory  # noqa: E402
 from agent.model.model import build_fallback_model, build_grader_model, build_model  # noqa: E402
 from agent.orchestration.graph import MODES, build_graph  # noqa: E402
 from agent.shared.runtime import Context  # noqa: E402
-from agent.shared.usage import usage_from_messages  # noqa: E402
+from agent.shared.usage import UsageCounter, with_counter  # noqa: E402
+
+# Which top-level node writes the user-facing answer, per mode. Tokens from every other
+# model call (parallel workers, graders, summaries, subagents) stay quiet, otherwise they
+# interleave on screen. Modes whose answer is not streamed print it whole at the end.
+STREAM_NODES = {
+    "simple": {"model"},
+    "planner": {"synthesize"},
+    "router": {"simple"},
+    "evaluator": set(),
+    "supervisor": set(),
+}
 
 
-async def stream_run(graph, payload, config, context) -> list:
-    """Stream one graph run. Prints tokens and tool events. Returns pending interrupts."""
-    interrupts = []
+async def stream_run(graph, payload, config, context, stream_nodes) -> tuple[list, bool]:
+    """Stream one run. Prints answer tokens and tool events.
+    Returns (pending interrupts, whether any answer tokens were printed)."""
+    interrupts, streamed = [], False
     async for mode, chunk in graph.astream(
         payload, config=config, context=context, stream_mode=["messages", "updates"],
         subgraphs=False,
     ):
         if mode == "messages":
-            msg, _meta = chunk
-            if msg.type == "AIMessageChunk" and isinstance(msg.content, str) and msg.content:
+            msg, meta = chunk
+            if (
+                meta.get("langgraph_node") in stream_nodes
+                and msg.type == "AIMessageChunk"
+                and isinstance(msg.content, str)
+                and msg.content
+            ):
                 print(msg.content, end="", flush=True)
+                streamed = True
         elif mode == "updates":
             for node, update in chunk.items():
                 if node == "__interrupt__":
@@ -63,7 +81,7 @@ async def stream_run(graph, payload, config, context) -> list:
                     if getattr(m, "type", "") == "tool":
                         print(f"\n[tool:{m.name}] {str(m.content)[:200]}")
     print()
-    return interrupts
+    return interrupts, streamed
 
 
 def ask_resume(interrupt):
@@ -91,22 +109,29 @@ def ask_resume(interrupt):
     return {"decisions": decisions}
 
 
-async def drive(graph, payload, config, resume_config, context) -> None:
+async def drive(graph, payload, config, resume_config, context, stream_nodes) -> None:
     """Run until finished, answering every interrupt along the way."""
     print("\nagent> ", end="", flush=True)
-    interrupts = await stream_run(graph, payload, config, context)
+    interrupts, streamed = await stream_run(graph, payload, config, context, stream_nodes)
     while interrupts:
         resume_map = {i.id: ask_resume(i) for i in interrupts}
         print("\nagent> ", end="", flush=True)
-        interrupts = await stream_run(graph, Command(resume=resume_map), resume_config, context)
+        interrupts, more = await stream_run(
+            graph, Command(resume=resume_map), resume_config, context, stream_nodes
+        )
+        streamed = streamed or more
+    if not streamed:  # the answer came from a node we do not stream: print it whole
+        messages = (await graph.aget_state(resume_config)).values.get("messages", [])
+        if messages:
+            print(messages[-1].content)
 
 
-async def turn(graph, config, context, text: str) -> None:
-    before = len((await graph.aget_state(config)).values.get("messages", []))
+async def turn(graph, config, context, text: str, stream_nodes: set) -> None:
     payload = {"messages": [{"role": "user", "content": text}]}
-    await drive(graph, payload, config, config, context)
-    messages = (await graph.aget_state(config)).values.get("messages", [])
-    print(f"[{usage_from_messages(messages[before:])}]")
+    counter = UsageCounter()  # sees every model call, nested ones included
+    counted = with_counter(config, counter)
+    await drive(graph, payload, counted, counted, context, stream_nodes)
+    print(f"[{counter}]")
 
 
 async def print_history(graph, config) -> None:
@@ -140,16 +165,17 @@ async def main() -> None:
         )
         config = {"configurable": {"thread_id": args.thread}}
         context = Context(user_id=args.user)
+        stream_nodes = STREAM_NODES[args.mode]
 
         if args.history:
             await print_history(graph, config)
             return
         if args.replay:
             at = {"configurable": {"thread_id": args.thread, "checkpoint_id": args.replay}}
-            await drive(graph, None, at, config, context)  # None = continue from `at`
+            await drive(graph, None, at, config, context, stream_nodes)  # None = resume at `at`
             return
         if args.once:
-            await turn(graph, config, context, args.once)
+            await turn(graph, config, context, args.once, stream_nodes)
             return
 
         print(f"mode={args.mode} thread={args.thread} user={args.user}  (ctrl-c to quit)")
@@ -160,7 +186,7 @@ async def main() -> None:
                 print()
                 break
             if text:
-                await turn(graph, config, context, text)
+                await turn(graph, config, context, text, stream_nodes)
 
 
 if __name__ == "__main__":

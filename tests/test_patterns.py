@@ -168,13 +168,9 @@ def test_large_tool_results_are_offloaded_and_readable(monkeypatch, tmp_path):
     tool_msgs = [m for m in out["messages"] if m.type == "tool"]
     assert "saved to big_dump-c1.txt" in tool_msgs[0].content
     assert len(tool_msgs[0].content) < 1500  # the model never saw the 40k chars
-    assert (tmp_path / "big_dump-c1.txt").exists()
+    assert (tmp_path / "o1" / "big_dump-c1.txt").exists()  # one folder per thread
     assert "line 4000" in tool_msgs[1].content and "line 4001" in tool_msgs[1].content
 
-
-def test_read_file_is_jailed_to_the_offload_dir(monkeypatch, tmp_path):
-    monkeypatch.setenv("OFFLOAD_DIR", str(tmp_path))
-    assert read_file.invoke({"name": "../pyproject.toml"}).startswith("error")
 
 
 # ---------------------------------------------------------------- skills

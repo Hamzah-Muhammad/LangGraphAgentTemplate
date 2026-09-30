@@ -26,7 +26,11 @@ Asking a model to behave is a suggestion. These are enforced.
   Compaction happens on your terms, before the model is under pressure.
 - Any single tool result over `OFFLOAD_CHARS` is saved to a file. The model sees a preview
   and pages through the rest with `read_file`.
-- Gated tools pause for a human before they run.
+- Gated tools pause for a human before they run, including inside subagents.
+- Offloaded results live in one folder per thread; `read_file` cannot see other threads.
+- Per-request state (planner results, evaluator rounds, supervisor hops) resets at the
+  start of every turn, so a long thread never inherits the last request's budget.
+- The usage line counts every model call, nested workers and graders included.
 
 **Router**
 - Regex rules run before the model. A rule match costs zero model calls.

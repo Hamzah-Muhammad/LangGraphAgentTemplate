@@ -18,7 +18,6 @@ Rules from the research, all enforced here:
   - the worker node has a retry policy for transient failures
 """
 
-import operator
 from typing import Annotated
 
 from langchain_core.language_models import BaseChatModel
@@ -67,10 +66,17 @@ Worker results:
 Write the final answer for the user. Lead with the answer. Plain words, no preamble."""
 
 
+def add_or_reset(current: list[str] | None, update: list[str] | None) -> list[str]:
+    """Workers append in parallel; the plan node sends None to clear the previous turn."""
+    if update is None:
+        return []
+    return (current or []) + update
+
+
 class PlannerState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     plan: list[str]
-    results: Annotated[list[str], operator.add]  # each worker appends one entry
+    results: Annotated[list[str], add_or_reset]  # workers append; plan resets per turn
 
 
 class WorkerInput(TypedDict):
@@ -100,7 +106,7 @@ def build_planner_graph(
         result: Plan = await planner_model.ainvoke([HumanMessage(content=prompt)])
         # Empty plan would skip workers AND synthesize; cap enforced in code.
         steps = [s for s in result.steps if s.strip()][:max_workers] or [request]
-        return {"plan": steps, "results": []}
+        return {"plan": steps, "results": None}  # None clears the previous turn
 
     def fan_out(state: PlannerState) -> list[Send]:
         return [Send("worker", {"task": step}) for step in state["plan"]]

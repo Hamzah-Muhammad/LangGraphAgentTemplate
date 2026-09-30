@@ -12,7 +12,6 @@ same thread, compile with `checkpointer=True` and add ToolCallLimitMiddleware(ru
 on the outer agent to prevent parallel calls into the same checkpoint namespace.
 """
 
-from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
@@ -25,11 +24,13 @@ assumptions and state them."""
 
 
 def build_specialist_tool(model: BaseChatModel) -> BaseTool:
-    specialist = create_agent(
-        model=model,
-        tools=[example_tool],
-        system_prompt=SPECIALIST_PROMPT,
-        name="specialist",
+    from agent.orchestration.graph import build_simple_agent  # local: graph.py imports this
+
+    # Built with build_simple_agent, NOT bare create_agent, so the subagent keeps every
+    # guard: call cap, retries, context handling, offload and the approval gate. A bare
+    # create_agent here let the main agent run gated tools unapproved by delegating them.
+    specialist = build_simple_agent(
+        model, [example_tool], system_prompt=SPECIALIST_PROMPT, name="specialist"
     )
 
     @tool

@@ -28,7 +28,7 @@ from langgraph.store.base import BaseStore
 from langgraph.types import interrupt
 from typing_extensions import TypedDict
 
-from agent.orchestration.graph import load_system_prompt
+from agent.prompt.loader import load_system_prompt
 from agent.shared.runtime import Context
 from agent.shared.schemas import Verdict
 
@@ -67,9 +67,16 @@ def build_evaluator_graph(
         humans = [m for m in state["messages"] if m.type == "human"]
         return str(humans[-1].content) if humans else ""
 
+    def start(state: EvalState) -> dict:
+        # Each user turn is a new job. Without this reset, turn 2 would "revise" turn 1's
+        # draft with turn 1's rounds already spent.
+        return {"draft": "", "feedback": "", "passed": False, "rounds": 0}
+
     async def generate(state: EvalState) -> dict:
         request = request_of(state)
-        prompt = [SystemMessage(load_system_prompt()), HumanMessage(request)]
+        # No skills index: the generator has no tools, so it cannot call load_skill.
+        system = load_system_prompt(with_skills=False)
+        prompt = [SystemMessage(system), HumanMessage(request)]
         if state.get("draft"):
             prompt.append(
                 HumanMessage(REVISE_PROMPT.format(draft=state["draft"], feedback=state["feedback"]))
@@ -108,11 +115,13 @@ def build_evaluator_graph(
         return {"messages": [AIMessage(content=state["draft"])]}
 
     builder = StateGraph(EvalState, context_schema=Context)
+    builder.add_node("start", start)
     builder.add_node("generate", generate)
     builder.add_node("grade", grade)
     builder.add_node("escalate", escalate)
     builder.add_node("finish", finish)
-    builder.add_edge(START, "generate")
+    builder.add_edge(START, "start")
+    builder.add_edge("start", "generate")
     builder.add_edge("generate", "grade")
     builder.add_conditional_edges("grade", after_grade, ["finish", "generate", "escalate"])
     builder.add_edge("escalate", "finish")
