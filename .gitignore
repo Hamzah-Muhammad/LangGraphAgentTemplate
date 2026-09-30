@@ -1,5 +1,10 @@
 .venv/
+# Secrets and local state: never commit these.
 .env
+.env.*
+!.env.example
+*.pem
+*.key
 *.db
 *.db-journal
 __pycache__/

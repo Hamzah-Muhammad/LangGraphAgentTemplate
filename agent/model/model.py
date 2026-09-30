@@ -128,8 +128,8 @@ def describe_model(prefix: str) -> str | None:
 
 def _safe_host(base_url: str | None) -> str:
     """Host and port only. This text is printed at startup and ends up in logs, so it must
-    never include credentials: a URL like https://user:password@host/v1 carries them in
-    its netloc, and a path or query can carry a token. Only hostname[:port] is returned."""
+    never include credentials: a URL can carry a username and password in front of the
+    host, and a path or query can carry a token. Only hostname[:port] is returned."""
     try:
         parsed = urlparse(base_url or "")
         host, port = parsed.hostname, parsed.port

@@ -84,6 +84,8 @@ LangGraphAgentTemplate/
 ├── langgraph.json                  LangGraph Studio / Platform entry points
 ├── pyproject.toml                  dependencies, ruff, pytest
 ├── .env.example                    every setting, with defaults
+├── scripts/check_secrets.py        secret guard: blocks keys and .env files from git
+├── .githooks/pre-commit            runs the secret guard before every commit
 ├── evals/                          cases.jsonl (answer + tool path), runner, `python -m evals`
 ├── tests/                          fake-model tests, no key or network needed
 ├── docs/PATTERNS.md                when to use each mode, its cost, how it fails
@@ -118,6 +120,17 @@ copy .env.example .env
 ```
 
 Then choose your model (next section). Everything else in `.env` has a working default.
+
+**Keys stay out of git.** Your keys go in `.env`, which git ignores. `.env.example` ships
+with every key blank. Turn on the commit guard once per clone, so a key or a `.env` file
+is refused before a commit is even created:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+The same check runs in CI (`tests/test_no_secrets.py`), and you can run it yourself:
+`python scripts/check_secrets.py` (add `--history` to scan every commit).
 
 ## Choose your model
 
