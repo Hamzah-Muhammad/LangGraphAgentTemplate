@@ -6,8 +6,8 @@ import sys
 
 from dotenv import load_dotenv
 
-from agent.graph import build_graph
-from agent.model import build_fallback_model, build_model
+from agent.model.model import build_fallback_model, build_model
+from agent.orchestration.graph import build_graph
 from evals.runner import fresh_checkpointer, load_cases, run_all
 
 

@@ -4,7 +4,7 @@ import asyncio
 
 from langchain_core.messages import AIMessage
 
-from agent.graph import build_graph
+from agent.orchestration.graph import build_graph
 from evals.runner import Case, check, fresh_checkpointer, load_cases, run_all, tool_trajectory
 from tests.fakes import fake_model
 

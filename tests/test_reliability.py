@@ -7,8 +7,8 @@ from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from agent.graph import build_graph, build_simple_agent
-from agent.runtime import Context
+from agent.orchestration.graph import build_graph, build_simple_agent
+from agent.shared.runtime import Context
 from tests.fakes import fake_model
 
 CALLS = {"boom": 0}

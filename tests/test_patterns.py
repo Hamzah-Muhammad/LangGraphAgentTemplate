@@ -8,15 +8,15 @@ from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from agent.graph import MODES, build_graph, build_simple_agent, load_system_prompt
-from agent.patterns.evaluator import build_evaluator_graph
-from agent.patterns.router import build_router_graph
-from agent.patterns.supervisor import build_supervisor_graph
-from agent.runtime import Context
-from agent.skills import discover_skills
+from agent.orchestration.graph import MODES, build_graph, build_simple_agent, load_system_prompt
+from agent.orchestration.patterns.evaluator import build_evaluator_graph
+from agent.orchestration.patterns.router import build_router_graph
+from agent.orchestration.patterns.supervisor import build_supervisor_graph
+from agent.prompt.skills import discover_skills
+from agent.shared.runtime import Context
+from agent.tools.files import read_file
+from agent.tools.skills import load_skill
 from tests.fakes import fake_model
-from tools.files import read_file
-from tools.skills import load_skill
 
 CTX = Context(user_id="test")
 

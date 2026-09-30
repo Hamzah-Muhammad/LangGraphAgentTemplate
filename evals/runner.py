@@ -29,7 +29,7 @@ from pathlib import Path
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from agent.runtime import Context
+from agent.shared.runtime import Context
 
 CASES_PATH = Path(__file__).resolve().parent / "cases.jsonl"
 MAX_AUTO_APPROVALS = 10

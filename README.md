@@ -10,21 +10,86 @@ supervisor with specialists), human approval, per-user long-term memory, context
 compaction, large-result offload, retries and fallback, trajectory evals, time travel,
 tracing and CI.
 
-## The six blocks
+## Structure
 
-| Block | File | What it does |
-|---|---|---|
-| Model | `agent/model.py` | Any OpenAI-compatible host from `.env`. Optional fallback and grader models. |
-| Tools | `tools/`, `mcp_servers.json`, `agents/` | Python `@tool` functions, MCP servers with no code, subagents wrapped as tools. |
-| System Prompt | `prompts/system.md`, `skills/` | Markdown read at startup, plus a one-line index of skills loaded on demand. |
-| Context Window | `agent/context.py`, `agent/offload.py` | Clears old tool results at 50% of the window, summarizes at 60%, offloads huge tool results to files. |
-| Memory | `agent/memory.py`, `tools/memory_tools.py` | SQLite checkpoints per thread, and a per-user store the agent reads and writes. |
-| Orchestration | `agent/graph.py`, `agent/patterns/` | Five modes built from the same blocks. |
+One folder per building block inside `agent/`. Everything outside `agent/` is how you
+run, test or configure it. `tests/test_layout.py` fails if a file under `agent/` is
+missing from this tree, so the tree always matches the code.
 
-Cross-cutting: `agent/reliability.py` (call cap, retries, fallback, tool-error recovery),
-`agent/approval.py` (human gate), `agent/settings.py` (every tunable number),
-`agent/runtime.py` (per-run `user_id`), `agent/schemas.py` (structured decisions),
-`agent/usage.py` (tokens and cost).
+```
+LangGraphAgentTemplate/
+├── agent/                          the agent: one folder per building block
+│   ├── __init__.py                 map of the blocks
+│   │
+│   ├── model/                      BLOCK 1  MODEL: the only part that thinks
+│   │   ├── __init__.py
+│   │   └── model.py                primary, fallback and grader models from .env
+│   │
+│   ├── tools/                      BLOCK 2  TOOLS: what the agent can do
+│   │   ├── __init__.py             ALL_TOOLS: register every Python tool here
+│   │   ├── example_tool.py         placeholder tool to copy
+│   │   ├── memory_tools.py         remember / recall, per user (writes to BLOCK 5)
+│   │   ├── files.py                read_file, only inside the offload folder (BLOCK 4)
+│   │   ├── skills.py               load_skill, pulls a skill body (BLOCK 3)
+│   │   └── mcp.py                  loads servers from mcp_servers.json as tools
+│   │
+│   ├── prompt/                     BLOCK 3  SYSTEM PROMPT: what the agent is told
+│   │   ├── __init__.py
+│   │   ├── system.md               rules for every turn; edit this first
+│   │   ├── loader.py               system.md + skills index = the system prompt
+│   │   ├── skills.py               finds SKILL.md files, builds the one-line index
+│   │   └── skills/
+│   │       └── write-report/
+│   │           └── SKILL.md        placeholder skill to copy
+│   │
+│   ├── context/                    BLOCK 4  CONTEXT WINDOW: what the model sees
+│   │   ├── __init__.py
+│   │   ├── compaction.py           clear old tool results at 50%, summarize at 60%, todos
+│   │   └── offload.py              tool results over OFFLOAD_CHARS go to a file
+│   │
+│   ├── memory/                     BLOCK 5  MEMORY: what the agent remembers
+│   │   ├── __init__.py
+│   │   └── store.py                SQLite checkpoints per thread + store per user
+│   │
+│   ├── orchestration/              BLOCK 6  ORCHESTRATION: what runs next
+│   │   ├── __init__.py
+│   │   ├── graph.py                build_simple_agent (all middleware) + mode dispatch
+│   │   ├── reliability.py          call cap, retries, fallback, tool-error recovery
+│   │   ├── approval.py             human gate: tools listed here pause first
+│   │   ├── studio.py               one graph per mode for langgraph.json
+│   │   ├── patterns/
+│   │   │   ├── __init__.py
+│   │   │   ├── planner.py          plan -> parallel workers -> synthesize
+│   │   │   ├── router.py           rules -> model -> one path
+│   │   │   ├── evaluator.py        draft -> separate grader -> revise -> human
+│   │   │   └── supervisor.py       coordinator -> specialist -> coordinator
+│   │   └── subagents/
+│   │       ├── __init__.py         SUBAGENT_BUILDERS: subagents offered as tools
+│   │       ├── specialist.py       one subagent wrapped as a tool
+│   │       └── team.py             researcher + writer for supervisor mode
+│   │
+│   └── shared/                     not a block: helpers every block uses
+│       ├── __init__.py
+│       ├── settings.py             every cap, threshold and flag, read from .env
+│       ├── runtime.py              per-run context (user_id)
+│       ├── schemas.py              structured outputs: Plan, Verdict, Answer
+│       └── usage.py                tokens and cost per turn
+│
+├── run.py                          CLI: --mode --thread --user --once --history --replay
+├── mcp_servers.json                MCP servers to load (enabled: true / false)
+├── langgraph.json                  LangGraph Studio / Platform entry points
+├── pyproject.toml                  dependencies, ruff, pytest
+├── .env.example                    every setting, with defaults
+├── evals/                          cases.jsonl (answer + tool path), runner, `python -m evals`
+├── tests/                          fake-model tests, no key or network needed
+├── docs/PATTERNS.md                when to use each mode, its cost, how it fails
+└── .github/workflows/ci.yml        ruff + pytest on every push
+```
+
+**How the blocks connect.** `agent/orchestration/graph.py` is the only place they meet.
+`build_simple_agent` takes the model (1), the tools (2) and the prompt (3), wraps them in
+the context (4) and reliability middleware, and attaches memory (5). Every mode in
+`patterns/` is built from `build_simple_agent`, so every mode gets all six blocks.
 
 ## Workflow modes
 
@@ -75,7 +140,7 @@ copy .env.example .env      # then fill in the values
 Each turn ends with a usage line. Restart with the same `--thread` and the conversation
 resumes from `memory.db`.
 
-**Approval.** Tools named in `agent/approval.py` pause before running. Answer `y`, `n`, or
+**Approval.** Tools named in `agent/orchestration/approval.py` pause before running. Answer `y`, `n`, or
 `e` to edit the arguments as JSON. When the evaluator runs out of rounds it pauses the
 same way and you accept or replace the draft.
 
@@ -104,17 +169,17 @@ never run, and how many calls were allowed. CI runs ruff and pytest on every pus
 
 | Want to change | Edit | Code change? |
 |---|---|---|
-| behaviour, tone, standing rules | `prompts/system.md` | no |
-| a reusable procedure | add `skills/<name>/SKILL.md` | no |
+| behaviour, tone, standing rules | `agent/prompt/system.md` | no |
+| a reusable procedure | add `agent/prompt/skills/<name>/SKILL.md` | no |
 | add an MCP server's tools | `mcp_servers.json`, set `enabled: true` | no |
 | add a regression case | a line in `evals/cases.jsonl` | no |
 | caps, thresholds, feature flags | `.env` | no |
-| add a Python tool | copy `tools/example_tool.py`, register in `tools/__init__.py` | small |
-| require a human yes for a tool | add its name to `INTERRUPT_ON` in `agent/approval.py` | one line |
-| add a specialist | edit `agents/team.py` (supervisor) or copy `agents/specialist.py` (tool) | small |
-| change routing rules | `DEFAULT_RULES` in `agent/patterns/router.py` | one line |
-| typed final answers | uncomment `response_format=` in `agent/graph.py` | one line |
-| a new control flow | copy the closest file in `agent/patterns/` | yes |
+| add a Python tool | copy `agent/tools/example_tool.py`, register in `agent/tools/__init__.py` | small |
+| require a human yes for a tool | add its name to `INTERRUPT_ON` in `agent/orchestration/approval.py` | one line |
+| add a specialist | edit `agent/orchestration/subagents/team.py` (supervisor) or copy `agent/orchestration/subagents/specialist.py` (tool) | small |
+| change routing rules | `DEFAULT_RULES` in `agent/orchestration/patterns/router.py` | one line |
+| typed final answers | uncomment `response_format=` in `agent/orchestration/graph.py` | one line |
+| a new control flow | copy the closest file in `agent/orchestration/patterns/` | yes |
 
 ## Rules baked in
 

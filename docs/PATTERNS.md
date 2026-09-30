@@ -5,11 +5,11 @@ latency and new ways to fail. Move up only when an eval shows the simpler mode l
 
 | Mode | Shape | Use when | Model calls per request | Main failure mode | File |
 |---|---|---|---|---|---|
-| `simple` | model ↔ tools loop | Almost always. One goal, tools as needed. | 1 + one per tool round | Loops or wanders on long tasks | `agent/graph.py` |
-| `router` | classify → one path | Requests fall into clearly different kinds that need different handling | +0 if a rule matches, +1 if the model classifies | Misrouting on ambiguous input | `agent/patterns/router.py` |
-| `planner` | plan → N parallel workers → synthesize | Breadth-first work: several independent directions | 2 + N workers (each a full agent). Roughly 5-15x `simple` | Overlapping or vague sub-tasks, runaway fan-out | `agent/patterns/planner.py` |
-| `evaluator` | draft → grade → revise, capped | Output quality has clear, checkable criteria | 2 per round, max 3 rounds | Vague grading criteria give vague revisions | `agent/patterns/evaluator.py` |
-| `supervisor` | coordinator → specialist → coordinator … | Distinct roles with different prompts or tools (researcher, writer, reviewer) | 1 per hop + each specialist's own calls | Ping-pong between specialists | `agent/patterns/supervisor.py` |
+| `simple` | model ↔ tools loop | Almost always. One goal, tools as needed. | 1 + one per tool round | Loops or wanders on long tasks | `agent/orchestration/graph.py` |
+| `router` | classify → one path | Requests fall into clearly different kinds that need different handling | +0 if a rule matches, +1 if the model classifies | Misrouting on ambiguous input | `agent/orchestration/patterns/router.py` |
+| `planner` | plan → N parallel workers → synthesize | Breadth-first work: several independent directions | 2 + N workers (each a full agent). Roughly 5-15x `simple` | Overlapping or vague sub-tasks, runaway fan-out | `agent/orchestration/patterns/planner.py` |
+| `evaluator` | draft → grade → revise, capped | Output quality has clear, checkable criteria | 2 per round, max 3 rounds | Vague grading criteria give vague revisions | `agent/orchestration/patterns/evaluator.py` |
+| `supervisor` | coordinator → specialist → coordinator … | Distinct roles with different prompts or tools (researcher, writer, reviewer) | 1 per hop + each specialist's own calls | Ping-pong between specialists | `agent/orchestration/patterns/supervisor.py` |
 
 Patterns compose. The default `router` already sends breadth-first requests to `planner`
 and everything else to `simple`. A supervisor's specialist can itself be a planner.
@@ -19,7 +19,7 @@ and everything else to `simple`. A supervisor's specialist can itself be a plann
 Asking a model to behave is a suggestion. These are enforced.
 
 **Every mode**
-- Model calls per run are capped (`agent/reliability.py`, 25).
+- Model calls per run are capped (`agent/orchestration/reliability.py`, 25).
 - Transient model errors retry, then fall back to a second model if one is configured.
 - A failing tool retries once, then its error reaches the model as text, not as a crash.
 - Old tool results are cleared at 50% of the context window. History is summarized at 60%.
@@ -68,9 +68,9 @@ and give each specialist the handoff decision instead of the supervisor.
 
 | Feature | Where | Why |
 |---|---|---|
-| Skills (`skills/<name>/SKILL.md`) | `agent/skills.py`, `tools/skills.py` | Reusable procedures. Only a one-line index sits in the prompt; the body loads on demand. |
-| Todo list (`AGENT_TODOS=true`) | `agent/context.py` | A `write_todos` tool that keeps the plan in recent attention on long tasks. |
-| Long-term memory | `tools/memory_tools.py` | `remember` / `recall`, namespaced per user, survives restarts. |
+| Skills (`agent/prompt/skills/<name>/SKILL.md`) | `agent/prompt/skills.py`, `agent/tools/skills.py` | Reusable procedures. Only a one-line index sits in the prompt; the body loads on demand. |
+| Todo list (`AGENT_TODOS=true`) | `agent/context/compaction.py` | A `write_todos` tool that keeps the plan in recent attention on long tasks. |
+| Long-term memory | `agent/tools/memory_tools.py` | `remember` / `recall`, namespaced per user, survives restarts. |
 | Time travel | `run.py --history`, `--replay` | Re-run a thread from any checkpoint to debug a bad step. |
 | Trajectory evals | `evals/` | Check which tools ran and in what order, not only the final text. |
 

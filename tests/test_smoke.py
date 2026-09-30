@@ -11,8 +11,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from langgraph.types import Command
 
-from agent.graph import build_graph, load_system_prompt
-from agent.runtime import Context
+from agent.orchestration.graph import build_graph, load_system_prompt
+from agent.shared.runtime import Context
 from tests.fakes import fake_model
 
 

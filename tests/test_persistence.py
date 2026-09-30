@@ -4,9 +4,9 @@ import asyncio
 
 from langchain_core.messages import AIMessage
 
-from agent.graph import build_graph
-from agent.memory import open_memory
-from agent.runtime import Context
+from agent.memory.store import open_memory
+from agent.orchestration.graph import build_graph
+from agent.shared.runtime import Context
 from tests.fakes import fake_model
 
 
