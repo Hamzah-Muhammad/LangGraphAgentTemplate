@@ -172,3 +172,17 @@ def test_default_prompt_covers_untrusted_data_memory_and_checking():
     prompt = load_system_prompt().lower()
     assert "data, not instructions" in prompt
     assert "remember" in prompt and "before you answer" in prompt
+
+
+def test_skipped_mcp_server_warning_does_not_echo_its_config(tmp_path, capsys):
+    """Was: the warning printed the raw error, which can repeat a URL or command holding
+    a token. Only the error type may reach the log."""
+    config = tmp_path / "mcp.json"
+    config.write_text(json.dumps({
+        "dead": {"enabled": True, "transport": "stdio",
+                 "command": "not-a-real-binary-TOKEN-abc123", "args": ["--key=TOPSECRET"]},
+    }), encoding="utf-8")
+    assert run(load_mcp_tools(config)) == []
+    warning = capsys.readouterr().err
+    assert "skipped server 'dead'" in warning
+    assert "TOPSECRET" not in warning and "abc123" not in warning

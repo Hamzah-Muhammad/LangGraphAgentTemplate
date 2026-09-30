@@ -76,3 +76,22 @@ def test_missing_claude_sdk_says_how_to_install_it(monkeypatch):
     )
     with pytest.raises(RuntimeError, match=r'pip install -e "\.\[claude\]"'):
         build_model()
+
+
+def test_banner_never_prints_credentials_from_the_model_url(monkeypatch):
+    """Was: the banner printed the URL's netloc, which includes user:password@."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-SECRETKEY")
+    monkeypatch.setenv("OPENAI_MODEL_NAME", "m")
+    monkeypatch.setenv(
+        "OPENAI_BASE_URL", "https://alice:s3cret@proxy.example.com:8443/v1?token=TOPSECRET"
+    )
+    banner = " ".join(describe_models())
+    assert banner == "[model] primary = openai-compatible: m @ proxy.example.com:8443"
+    for secret in ("alice", "s3cret", "TOPSECRET", "sk-SECRETKEY"):
+        assert secret not in banner
+
+
+def test_banner_survives_a_malformed_model_url(monkeypatch):
+    monkeypatch.setenv("OPENAI_MODEL_NAME", "m")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://host:notaport/v1")
+    assert describe_models() == ["[model] primary = openai-compatible: m @ unreadable base URL"]

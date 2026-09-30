@@ -123,8 +123,21 @@ def describe_model(prefix: str) -> str | None:
     name = os.getenv(f"{prefix}MODEL_NAME")
     if not name:
         return None
-    host = urlparse(os.getenv(f"{prefix}BASE_URL") or "").netloc or "no base URL set"
-    return f"openai-compatible: {name} @ {host}"
+    return f"openai-compatible: {name} @ {_safe_host(os.getenv(f'{prefix}BASE_URL'))}"
+
+
+def _safe_host(base_url: str | None) -> str:
+    """Host and port only. This text is printed at startup and ends up in logs, so it must
+    never include credentials: a URL like https://user:password@host/v1 carries them in
+    its netloc, and a path or query can carry a token. Only hostname[:port] is returned."""
+    try:
+        parsed = urlparse(base_url or "")
+        host, port = parsed.hostname, parsed.port
+    except ValueError:  # malformed URL or port
+        return "unreadable base URL"
+    if not host:
+        return "no base URL set"
+    return f"{host}:{port}" if port else host
 
 
 def describe_models() -> list[str]:

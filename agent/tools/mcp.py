@@ -45,6 +45,9 @@ async def load_mcp_tools(config_path: Path = CONFIG_PATH) -> list[BaseTool]:
         except Exception as error:
             if os.getenv("MCP_STRICT", "").lower() in {"1", "true", "yes", "on"}:
                 raise
-            print(f"[mcp] skipped server {name!r}: {type(error).__name__}: {error}",
-                  file=sys.stderr)
+            # Only the error TYPE is printed. The message can echo the server's URL,
+            # command line or headers, and those may hold a token. This line goes to
+            # logs, so it must stay free of secrets. MCP_STRICT=true shows the full error.
+            print(f"[mcp] skipped server {name!r}: {type(error).__name__} "
+                  "(set MCP_STRICT=true to see the full error)", file=sys.stderr)
     return tools
