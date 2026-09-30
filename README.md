@@ -89,8 +89,12 @@ pytest on each push.
 
 - Nodes never call each other. State in, state out; edges decide what runs next.
 - Tools never reason. Validation and permission checks live inside the tool as code.
+- Separate read tools from write tools. Never one tool that can both query and delete.
 - Every run has a `thread_id` (resume, replay, approval) and a `user_id` (memory namespace).
 - Errors reach the model as text, not as crashes, so it can recover or explain.
+- Middleware order is load-bearing: first in the list is the outermost wrapper. Fallback wraps
+  retry, so the primary is retried before the fallback runs. `tests/test_reliability.py` pins this.
+- Parallel branches can pause together. Resume them with one `{interrupt_id: value}` map.
 
 ## Disclaimer
 

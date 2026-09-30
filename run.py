@@ -9,6 +9,11 @@ CLI entry point. Wires env -> blocks -> graph, then streams a chat loop.
 Streams tokens as they arrive and prints tool calls as they happen.
 Approval flow: when a gated tool is called the graph pauses. You are shown the call and
 type  y  (approve),  n  (reject), or  e  (edit args as JSON). The graph resumes.
+Several branches can pause at once (planner mode); each interrupt is answered and the
+resume is sent as one {interrupt_id: decisions} map, which is how LangGraph pairs them.
+
+Uses the stable `astream(stream_mode=[...])` API. LangGraph's newer `stream_events(v3)`
+projection is still marked experimental in 1.2, so it is not used here yet.
 """
 
 import argparse
@@ -78,11 +83,10 @@ async def turn(graph, config, context, text: str) -> None:
     print("\nagent> ", end="", flush=True)
     interrupts = await stream_run(graph, payload, config, context)
     while interrupts:
-        decisions = ask_decisions(interrupts[0])
+        # One resume value per pending interrupt, keyed by interrupt id.
+        resume_map = {i.id: {"decisions": ask_decisions(i)} for i in interrupts}
         print("\nagent> ", end="", flush=True)
-        interrupts = await stream_run(
-            graph, Command(resume={"decisions": decisions}), config, context
-        )
+        interrupts = await stream_run(graph, Command(resume=resume_map), config, context)
     messages = (await graph.aget_state(config)).values.get("messages", [])
     print(f"[{usage_from_messages(messages[before:])}]")
 

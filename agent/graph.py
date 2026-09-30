@@ -27,6 +27,7 @@ from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from langgraph.runtime import Runtime
 from langgraph.store.base import BaseStore
 from langgraph.types import Send
 from typing_extensions import TypedDict
@@ -119,15 +120,19 @@ def build_planner_graph(
         result: Plan = await planner_model.ainvoke(
             [HumanMessage(content=f"Break this request into sub-tasks:\n\n{request}")]
         )
-        return {"plan": result.steps, "results": []}
+        # An empty plan would skip the workers AND synthesize; treat the request as one step.
+        steps = [s for s in result.steps if s.strip()] or [str(request)]
+        return {"plan": steps, "results": []}
 
     def fan_out(state: PlannerState) -> list[Send]:
         # One worker per step, all in parallel. Send() creates a branch per item.
         return [Send("worker", {"task": step}) for step in state["plan"]]
 
-    async def worker(state: WorkerInput) -> dict:
+    async def worker(state: WorkerInput, runtime: Runtime[Context]) -> dict:
+        # Pass the run's context through so memory tools see the same user_id.
         out = await worker_agent.ainvoke(
-            {"messages": [{"role": "user", "content": state["task"]}]}
+            {"messages": [{"role": "user", "content": state["task"]}]},
+            context=runtime.context,
         )
         return {"results": [f"### {state['task']}\n{out['messages'][-1].content}"]}
 

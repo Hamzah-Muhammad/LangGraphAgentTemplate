@@ -42,6 +42,7 @@ def _model_from_env(prefix: str, required: bool) -> BaseChatModel | None:
         api_key=api_key,
         base_url=base_url,
         temperature=0,
+        stream_usage=True,  # token counts arrive on streamed messages too (agent/usage.py)
     )
 
 
