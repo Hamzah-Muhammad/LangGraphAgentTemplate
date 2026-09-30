@@ -15,6 +15,11 @@ def _int(name: str, default: int) -> int:
     return int(value) if value else default
 
 
+def _float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    return float(value) if value else default
+
+
 def _bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     return value.strip().lower() in {"1", "true", "yes", "on"} if value else default
@@ -31,6 +36,10 @@ class Settings:
     max_plan_rounds: int  # planner plan/review rounds per request
     max_eval_rounds: int  # evaluator-optimizer revision cap before human escalation
     max_supervisor_hops: int  # supervisor delegation cap
+    request_timeout_s: float  # one model HTTP request
+    tool_timeout_s: float  # one tool call (subagent tools are exempt)
+    memory_inject: bool  # put the user's saved facts into the system prompt
+    memory_inject_limit: int  # how many saved facts at most
 
 
 def get_settings() -> Settings:
@@ -44,4 +53,8 @@ def get_settings() -> Settings:
         max_plan_rounds=_int("MAX_PLAN_ROUNDS", 2),
         max_eval_rounds=_int("MAX_EVAL_ROUNDS", 3),
         max_supervisor_hops=_int("MAX_SUPERVISOR_HOPS", 6),
+        request_timeout_s=_float("REQUEST_TIMEOUT_S", 120),
+        tool_timeout_s=_float("TOOL_TIMEOUT_S", 60),
+        memory_inject=_bool("MEMORY_INJECT", True),
+        memory_inject_limit=_int("MEMORY_INJECT_LIMIT", 10),
     )

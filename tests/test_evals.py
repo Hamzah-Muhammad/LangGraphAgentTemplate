@@ -16,7 +16,10 @@ def test_all_eval_cases_pass_with_fake_model():
     async def factory(case):
         script = case.fake_script or [case.fake_response]
         return await build_graph(
-            fake_model(*script), checkpointer=fresh_checkpointer(), include_mcp=False
+            fake_model(*script, structured=case.fake_structured),
+            mode=case.mode,
+            checkpointer=fresh_checkpointer(),
+            include_mcp=False,
         )
 
     results = asyncio.run(run_all(factory, cases))

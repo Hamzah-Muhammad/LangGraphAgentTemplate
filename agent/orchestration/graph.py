@@ -27,6 +27,7 @@ from langgraph.store.base import BaseStore
 
 from agent.context.compaction import build_context_middleware
 from agent.context.offload import OffloadLargeToolResults
+from agent.memory.inject import InjectMemories
 from agent.orchestration.approval import build_approval_middleware
 from agent.orchestration.reliability import build_reliability_middleware
 from agent.orchestration.subagents import SUBAGENT_BUILDERS
@@ -59,11 +60,17 @@ def build_simple_agent(
     name: str = "agent",
 ):
     settings = get_settings()
+    # Tools that run a whole agent (subagents) are exempt from the per-tool timeout.
+    long_running = {
+        t.name for t in tools if (getattr(t, "metadata", None) or {}).get("long_running")
+    }
+    memory = [InjectMemories(settings.memory_inject_limit)] if settings.memory_inject else []
     # Order is load-bearing: first = outermost wrapper. See agent/orchestration/reliability.py.
     middleware = [
-        *build_reliability_middleware(fallback_model),  # guards, retries, fallback
+        *build_reliability_middleware(fallback_model, long_running),  # guards, retries
         *build_context_middleware(model, settings),  # Context Window
         OffloadLargeToolResults(settings.offload_chars, settings.offload_dir),
+        *memory,  # saved facts about the user, added to the system prompt
         build_approval_middleware(),  # human gate
     ]
     return create_agent(

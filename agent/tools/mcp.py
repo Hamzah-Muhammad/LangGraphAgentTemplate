@@ -9,6 +9,8 @@ Add your own MCP servers (MinniMemoryMCP, GitHub, Postgres, ...) by editing the 
 """
 
 import json
+import os
+import sys
 from pathlib import Path
 
 from langchain_core.tools import BaseTool
@@ -34,5 +36,15 @@ async def load_mcp_tools(config_path: Path = CONFIG_PATH) -> list[BaseTool]:
     connections = _enabled_connections(config_path)
     if not connections:
         return []
-    client = MultiServerMCPClient(connections)
-    return await client.get_tools()
+    tools: list[BaseTool] = []
+    for name, connection in connections.items():
+        # One server at a time: a server that fails to start is skipped with a warning
+        # instead of taking the whole agent down. Set MCP_STRICT=true to fail instead.
+        try:
+            tools += await MultiServerMCPClient({name: connection}).get_tools()
+        except Exception as error:
+            if os.getenv("MCP_STRICT", "").lower() in {"1", "true", "yes", "on"}:
+                raise
+            print(f"[mcp] skipped server {name!r}: {type(error).__name__}: {error}",
+                  file=sys.stderr)
+    return tools

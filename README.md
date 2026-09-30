@@ -51,7 +51,8 @@ LangGraphAgentTemplate/
 │   │
 │   ├── memory/                     BLOCK 5  MEMORY: what the agent remembers
 │   │   ├── __init__.py
-│   │   └── store.py                SQLite checkpoints per thread + store per user
+│   │   ├── store.py                SQLite checkpoints per thread + store per user
+│   │   └── inject.py               adds the user's saved facts to the system prompt
 │   │
 │   ├── orchestration/              BLOCK 6  ORCHESTRATION: what runs next
 │   │   ├── __init__.py
@@ -127,6 +128,9 @@ copy .env.example .env      # then fill in the values
 | `OFFLOAD_CHARS`, `OFFLOAD_DIR` | Tool results longer than this are saved to files. |
 | `MAX_WORKERS`, `MAX_CONCURRENCY`, `MAX_PLAN_ROUNDS` | Planner: workers per round, workers calling the model at once, plan/review rounds. |
 | `MAX_EVAL_ROUNDS`, `MAX_SUPERVISOR_HOPS` | Caps for the evaluator and supervisor. |
+| `REQUEST_TIMEOUT_S`, `TOOL_TIMEOUT_S` | Deadline for one model request and for one tool call. |
+| `MEMORY_INJECT`, `MEMORY_INJECT_LIMIT` | Put the user's saved facts into the system prompt, and how many. |
+| `MCP_STRICT` | `true` makes a failing MCP server stop startup instead of being skipped. |
 | `PRICE_IN_PER_M`, `PRICE_OUT_PER_M` | Optional USD per 1M tokens for the cost line. |
 
 ## Run

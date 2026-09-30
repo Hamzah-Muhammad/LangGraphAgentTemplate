@@ -25,6 +25,11 @@ from langgraph.store.sqlite.aio import AsyncSqliteStore
 Memory = tuple[AsyncSqliteSaver, AsyncSqliteStore]
 
 
+def memory_namespace(context) -> tuple[str, str]:
+    """Where one user's long-term facts live. Used by the memory tools and by inject.py."""
+    return ("memories", getattr(context, "user_id", None) or "anonymous")
+
+
 @asynccontextmanager
 async def open_memory(path: str | None = None) -> AsyncIterator[Memory]:
     path = path or os.getenv("MEMORY_DB_PATH", "memory.db")

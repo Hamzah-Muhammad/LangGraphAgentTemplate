@@ -17,8 +17,10 @@ async def main() -> int:
         os.environ.setdefault("LANGSMITH_TRACING", "true")
     model, fallback = build_model(), build_fallback_model()
 
-    async def factory(_case):
-        return await build_graph(model, fallback_model=fallback, checkpointer=fresh_checkpointer())
+    async def factory(case):
+        return await build_graph(
+            model, mode=case.mode, fallback_model=fallback, checkpointer=fresh_checkpointer()
+        )
 
     results = await run_all(factory, load_cases())
     for r in results:

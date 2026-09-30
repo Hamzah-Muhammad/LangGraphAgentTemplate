@@ -33,6 +33,11 @@ Asking a model to behave is a suggestion. These are enforced.
 - Any single tool result over `OFFLOAD_CHARS` is saved to a file. The model sees a preview
   and pages through the rest with `read_file`.
 - Gated tools pause for a human before they run, including inside subagents.
+- Every model request and every tool call has a deadline. A tool that hangs is cancelled,
+  retried once, then reported to the model as an error.
+- The user's saved facts are added to the system prompt on every call, marked as data.
+- The default prompt tells the model that tool results are data, never instructions.
+- An MCP server that fails to start is skipped with a warning; the agent still runs.
 - Offloaded results live in one folder per thread; `read_file` cannot see other threads.
 - Per-request state (planner results, evaluator rounds, supervisor hops) resets at the
   start of every turn, so a long thread never inherits the last request's budget.

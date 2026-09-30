@@ -9,12 +9,18 @@ Each line of cases.jsonl is one case:
                          come in between). This is the trajectory check.
     forbid_tools         tool names that must NOT be called
     max_tool_calls       upper bound on total tool calls (catches loops)
+    mode                 workflow mode to run the case in (default "simple")
+    fake_structured      scripted structured-output answers for tests (route, plan...)
     fake_response        what the fake model answers in tests (no tool calls), or
     fake_script          a list of scripted model turns for tests, e.g.
                          [{"tool_calls": [{"name": "x", "args": {...}}]}, "final text"]
 
 Why trajectory: a right answer reached the wrong way (skipped a lookup, looped five
 times, called a write tool) is a latent bug. 2026 evals check the path, not just the end.
+
+The tool path is recorded by a callback (ToolTrace), not read off the final messages,
+so it also sees tools called by nested agents: planner workers, supervisor specialists,
+the router's chosen route. A case can set "mode" to evaluate any workflow mode.
 
 Gated tools are auto-approved during evals so a run never blocks on a human.
 
@@ -26,6 +32,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
@@ -44,6 +51,8 @@ class Case:
     expect_tools: list[str] = field(default_factory=list)
     forbid_tools: list[str] = field(default_factory=list)
     max_tool_calls: int | None = None
+    mode: str = "simple"
+    fake_structured: list | dict | None = None
     fake_response: str = ""
     fake_script: list = field(default_factory=list)
 
@@ -60,6 +69,19 @@ class CaseResult:
 def load_cases(path: Path = CASES_PATH) -> list[Case]:
     lines = path.read_text(encoding="utf-8").splitlines()
     return [Case(**json.loads(line)) for line in lines if line.strip()]
+
+
+class ToolTrace(BaseCallbackHandler):
+    """Records every tool call in a run, in start order, nested agents included."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.names: list[str] = []
+
+    def on_tool_start(self, serialized, input_str, **kwargs) -> None:
+        name = (serialized or {}).get("name") or kwargs.get("name")
+        if name:
+            self.names.append(name)
 
 
 def tool_trajectory(messages) -> list[str]:
@@ -92,7 +114,8 @@ def _approve_all(interrupts) -> Command:
 
 
 async def run_case(graph, case: Case) -> CaseResult:
-    config = {"configurable": {"thread_id": f"eval-{case.id}"}}
+    trace = ToolTrace()
+    config = {"configurable": {"thread_id": f"eval-{case.id}"}, "callbacks": [trace]}
     context = Context(user_id="eval")
     payload = {"messages": [{"role": "user", "content": case.input}]}
     for _ in range(MAX_AUTO_APPROVALS):
@@ -101,7 +124,7 @@ async def run_case(graph, case: Case) -> CaseResult:
             break
         payload = _approve_all(result["__interrupt__"])
     messages = result["messages"]
-    return check(case, str(messages[-1].content), tool_trajectory(messages))
+    return check(case, str(messages[-1].content), trace.names)
 
 
 async def run_all(graph_factory, cases: list[Case]) -> list[CaseResult]:

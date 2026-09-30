@@ -40,4 +40,7 @@ def build_specialist_tool(model: BaseChatModel) -> BaseTool:
         result = await specialist.ainvoke({"messages": [{"role": "user", "content": task}]})
         return result["messages"][-1].content
 
+    # A whole agent runs inside this tool and it may wait for a human approval,
+    # so the per-tool timeout must not cancel it.
+    ask_specialist.metadata = {"long_running": True}
     return ask_specialist

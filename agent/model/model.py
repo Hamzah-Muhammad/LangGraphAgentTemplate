@@ -14,6 +14,8 @@ import os
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 
+from agent.shared.settings import get_settings
+
 
 def _model_from_env(prefix: str, required: bool) -> BaseChatModel | None:
     api_key = os.getenv(f"{prefix}API_KEY")
@@ -43,7 +45,10 @@ def _model_from_env(prefix: str, required: bool) -> BaseChatModel | None:
         api_key=api_key,
         base_url=base_url,
         temperature=0,
-        stream_usage=True,  # token counts arrive on streamed messages too (agent/shared/usage.py)
+        stream_usage=True,  # token counts arrive on streamed messages too
+        # Every request has a deadline. Without one a stalled host hangs the run.
+        timeout=get_settings().request_timeout_s,
+        max_retries=2,  # client-level retry with backoff for 429 / 5xx / timeouts
     )
 
 

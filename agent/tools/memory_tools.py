@@ -10,13 +10,12 @@ from uuid import uuid4
 
 from langchain.tools import ToolRuntime, tool
 
+from agent.memory.store import memory_namespace
 from agent.shared.runtime import Context
 
 
 def _namespace(runtime: ToolRuntime) -> tuple[str, str]:
-    ctx = runtime.context
-    user_id = getattr(ctx, "user_id", None) or Context().user_id
-    return ("memories", user_id)
+    return memory_namespace(runtime.context)
 
 
 @tool
