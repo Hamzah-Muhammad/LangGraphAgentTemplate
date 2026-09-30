@@ -26,11 +26,18 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 
 from dotenv import load_dotenv
 from langgraph.types import Command
 
 load_dotenv()
+
+# Windows consoles default to a legacy code page. A reply with a character outside it
+# (an arrow, an emoji) would crash print(). Force UTF-8 and never fail on output.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 # LangSmith tracing turns on only if a key is present.
 if os.getenv("LANGSMITH_API_KEY"):

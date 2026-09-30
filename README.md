@@ -24,7 +24,8 @@ LangGraphAgentTemplate/
 │   ├── model/                      BLOCK 1  MODEL: the only part that thinks
 │   │   ├── __init__.py
 │   │   ├── model.py                primary, fallback and grader models from .env
-│   │   └── structured.py           structured(): portable tool-calling output + 1 retry
+│   │   ├── structured.py           structured(): portable tool-calling output + 1 retry
+│   │   └── claude_code.py          Claude via your Claude Pro/Max login, no API key
 │   │
 │   ├── tools/                      BLOCK 2  TOOLS: what the agent can do
 │   │   ├── __init__.py             ALL_TOOLS: register every Python tool here
@@ -118,6 +119,8 @@ copy .env.example .env      # then fill in the values
 
 | `.env` key | Purpose |
 |---|---|
+| `MODEL_PROVIDER` | `openai` (default, any OpenAI-compatible host) or `claude-code` (your Claude login, no key). `FALLBACK_PROVIDER` and `GRADER_PROVIDER` work the same way. |
+| `CLAUDE_MODEL` | With `claude-code`: `haiku`, `sonnet`, `opus` or a full model id. |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL_NAME` | Primary model on any OpenAI-compatible host (Groq, NVIDIA NIM, OpenRouter, local vLLM or Ollama). |
 | `FALLBACK_*` (same three) | Optional second model used after retries fail. |
 | `GRADER_*` (same three) | Optional separate model for the evaluator's grader. |
@@ -132,6 +135,30 @@ copy .env.example .env      # then fill in the values
 | `MEMORY_INJECT`, `MEMORY_INJECT_LIMIT` | Put the user's saved facts into the system prompt, and how many. |
 | `MCP_STRICT` | `true` makes a failing MCP server stop startup instead of being skipped. |
 | `PRICE_IN_PER_M`, `PRICE_OUT_PER_M` | Optional USD per 1M tokens for the cost line. |
+
+## Using Claude with your Claude plan (no API key)
+
+```powershell
+.venv\Scripts\pip install -e ".[claude]"
+claude            # once: install Claude Code, run it, and sign in with /login
+```
+
+Then in `.env`:
+
+```
+MODEL_PROVIDER=claude-code
+CLAUDE_MODEL=sonnet
+```
+
+Calls go through the official Claude Agent SDK and the Claude Code CLI, and draw from
+your Pro or Max plan limits. The template stays in charge: Claude Code's own tools, MCP
+servers and machine settings are switched off, Claude only decides which template tool to
+call, and the template runs it. So approval, timeouts, retries and evals work as with any
+other model. Replies are not streamed token by token in this mode.
+
+Anthropic's rules for subscription use with the Agent SDK have changed before. If this
+stops working, check https://support.claude.com/en/articles/15036540 and switch
+`MODEL_PROVIDER` back to `openai`.
 
 ## Run
 

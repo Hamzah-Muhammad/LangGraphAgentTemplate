@@ -14,7 +14,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Claude through your Claude Pro/Max login (MODEL_PROVIDER=claude-code).
+claude = [
+    "claude-agent-sdk>=0.2",
+]
 dev = [
+    "claude-agent-sdk>=0.2",
     "pytest>=8",
     "ruff>=0.6",
     "langgraph-cli[inmem]>=0.4",
