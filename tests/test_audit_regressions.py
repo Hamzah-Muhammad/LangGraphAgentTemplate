@@ -71,7 +71,8 @@ def test_planner_results_do_not_leak_into_the_next_turn():
 def test_evaluator_starts_fresh_each_turn():
     """Was: turn 2 revised turn 1's draft with turn 1's rounds already spent."""
     graph = build_evaluator_graph(
-        fake_model("a", "b"), fake_model(structured={"passed": True, "feedback": ""}),
+        build_simple_agent(fake_model("a", "b"), []),
+        fake_model(structured={"passed": True, "feedback": ""}),
         max_rounds=3, checkpointer=InMemorySaver(),
     )
 

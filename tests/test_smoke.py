@@ -131,7 +131,7 @@ def test_planner_fans_out_and_synthesizes():
             config={"configurable": {"thread_id": "p1"}},
             context=Context(user_id="x"),
         )
-        assert result["plan"] == ["task A", "task B"]
+        assert [r.splitlines()[0] for r in result["results"]] == ["### task A", "### task B"]
         assert len(result["results"]) == 2
         assert result["messages"][-1].content == "final"
 

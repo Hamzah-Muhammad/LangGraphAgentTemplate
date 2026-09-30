@@ -108,8 +108,10 @@ async def build_graph(
     if mode == "planner":
         return build_planner_graph(model, tools, fallback_model=fallback_model, **persist)
     if mode == "evaluator":
+        generator = build_simple_agent(model, tools, fallback_model=fallback_model,
+                                       name="generator")  # drafts with tools and memory
         return build_evaluator_graph(
-            model, grader_model or model, max_rounds=settings.max_eval_rounds, **persist
+            generator, grader_model or model, max_rounds=settings.max_eval_rounds, **persist
         )
     if mode == "supervisor":
         team = build_team(model, tools, fallback_model=fallback_model)

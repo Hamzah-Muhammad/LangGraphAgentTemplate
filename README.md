@@ -23,7 +23,8 @@ LangGraphAgentTemplate/
 │   │
 │   ├── model/                      BLOCK 1  MODEL: the only part that thinks
 │   │   ├── __init__.py
-│   │   └── model.py                primary, fallback and grader models from .env
+│   │   ├── model.py                primary, fallback and grader models from .env
+│   │   └── structured.py           structured(): portable tool-calling output + 1 retry
 │   │
 │   ├── tools/                      BLOCK 2  TOOLS: what the agent can do
 │   │   ├── __init__.py             ALL_TOOLS: register every Python tool here
@@ -45,7 +46,8 @@ LangGraphAgentTemplate/
 │   ├── context/                    BLOCK 4  CONTEXT WINDOW: what the model sees
 │   │   ├── __init__.py
 │   │   ├── compaction.py           clear old tool results at 50%, summarize at 60%, todos
-│   │   └── offload.py              tool results over OFFLOAD_CHARS go to a per-thread file
+│   │   ├── offload.py              tool results over OFFLOAD_CHARS go to a per-thread file
+│   │   └── history.py              recent turns as text, for planner, router, synthesizer
 │   │
 │   ├── memory/                     BLOCK 5  MEMORY: what the agent remembers
 │   │   ├── __init__.py
@@ -59,7 +61,7 @@ LangGraphAgentTemplate/
 │   │   ├── studio.py               one graph per mode for langgraph.json
 │   │   ├── patterns/
 │   │   │   ├── __init__.py
-│   │   │   ├── planner.py          plan -> parallel workers -> synthesize
+│   │   │   ├── planner.py          plan -> workers -> review (re-plan gaps) -> synthesize
 │   │   │   ├── router.py           rules -> model -> one path
 │   │   │   ├── evaluator.py        draft -> separate grader -> revise -> human
 │   │   │   └── supervisor.py       coordinator -> specialist -> coordinator
@@ -123,7 +125,8 @@ copy .env.example .env      # then fill in the values
 | `CONTEXT_WINDOW_TOKENS` | Your model's real limit. Compaction thresholds derive from it. |
 | `AGENT_TODOS` | `true` adds the `write_todos` planning tool. |
 | `OFFLOAD_CHARS`, `OFFLOAD_DIR` | Tool results longer than this are saved to files. |
-| `MAX_WORKERS`, `MAX_EVAL_ROUNDS`, `MAX_SUPERVISOR_HOPS` | Caps for the planner, evaluator and supervisor. |
+| `MAX_WORKERS`, `MAX_CONCURRENCY`, `MAX_PLAN_ROUNDS` | Planner: workers per round, workers calling the model at once, plan/review rounds. |
+| `MAX_EVAL_ROUNDS`, `MAX_SUPERVISOR_HOPS` | Caps for the evaluator and supervisor. |
 | `PRICE_IN_PER_M`, `PRICE_OUT_PER_M` | Optional USD per 1M tokens for the cost line. |
 
 ## Run

@@ -76,7 +76,7 @@ def test_router_uses_default_when_classifier_breaks():
 
 
 def test_evaluator_revises_until_the_separate_grader_passes():
-    generator = fake_model("draft one", "draft two")
+    generator = agent("draft one", "draft two")  # the writer is a full agent
     grader = fake_model(structured=[
         {"passed": False, "feedback": "add the price"},
         {"passed": True, "feedback": "good"},
@@ -87,7 +87,7 @@ def test_evaluator_revises_until_the_separate_grader_passes():
 
 
 def test_evaluator_escalates_to_a_human_after_max_rounds():
-    generator = fake_model("d1", "d2", "d3")
+    generator = agent("d1", "d2", "d3")
     grader = fake_model(structured={"passed": False, "feedback": "still wrong"})
     graph = build_evaluator_graph(generator, grader, max_rounds=3, checkpointer=InMemorySaver())
 
@@ -141,7 +141,7 @@ def test_planner_caps_workers_in_code(monkeypatch):
     graph = asyncio.run(build_graph(model, mode="planner", checkpointer=InMemorySaver(),
                                     include_mcp=False))
     out = asyncio.run(graph.ainvoke(user("compare ten things"), cfg("p1"), context=CTX))
-    assert len(out["plan"]) == 3 and len(out["results"]) == 3
+    assert len(out["results"]) == 3  # 10 planned, capped to 3 workers
 
 
 # ---------------------------------------------------------------- offload + read_file

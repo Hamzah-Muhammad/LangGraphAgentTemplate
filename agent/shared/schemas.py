@@ -19,6 +19,15 @@ class Plan(BaseModel):
     )
 
 
+class Review(BaseModel):
+    """The orchestrator's check of worker results after a round."""
+
+    done: bool = Field(description="True if the results are enough to answer the request.")
+    missing_steps: list[str] = Field(
+        default_factory=list, description="New self-contained steps that fill the gaps."
+    )
+
+
 class Verdict(BaseModel):
     """A grader's decision on a draft."""
 

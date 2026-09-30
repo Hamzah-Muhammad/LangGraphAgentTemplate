@@ -7,8 +7,8 @@ latency and new ways to fail. Move up only when an eval shows the simpler mode l
 |---|---|---|---|---|---|
 | `simple` | model ↔ tools loop | Almost always. One goal, tools as needed. | 1 + one per tool round | Loops or wanders on long tasks | `agent/orchestration/graph.py` |
 | `router` | classify → one path | Requests fall into clearly different kinds that need different handling | +0 if a rule matches, +1 if the model classifies | Misrouting on ambiguous input | `agent/orchestration/patterns/router.py` |
-| `planner` | plan → N parallel workers → synthesize | Breadth-first work: several independent directions | 2 + N workers (each a full agent). Roughly 5-15x `simple` | Overlapping or vague sub-tasks, runaway fan-out | `agent/orchestration/patterns/planner.py` |
-| `evaluator` | draft → grade → revise, capped | Output quality has clear, checkable criteria | 2 per round, max 3 rounds | Vague grading criteria give vague revisions | `agent/orchestration/patterns/evaluator.py` |
+| `planner` | plan → parallel workers → review, re-plan gaps (max 2 rounds) → synthesize | Breadth-first work: several independent directions | 2 + N workers (each a full agent). Roughly 5-15x `simple` | Overlapping or vague sub-tasks, runaway fan-out | `agent/orchestration/patterns/planner.py` |
+| `evaluator` | agent drafts → separate grader → revise, capped | Output quality has clear, checkable criteria | 2 per round, max 3 rounds | Vague grading criteria give vague revisions | `agent/orchestration/patterns/evaluator.py` |
 | `supervisor` | coordinator → specialist → coordinator … | Distinct roles with different prompts or tools (researcher, writer, reviewer) | 1 per hop + each specialist's own calls | Ping-pong between specialists | `agent/orchestration/patterns/supervisor.py` |
 
 Patterns compose. The default `router` already sends breadth-first requests to `planner`
@@ -19,6 +19,12 @@ and everything else to `simple`. A supervisor's specialist can itself be a plann
 Asking a model to behave is a suggestion. These are enforced.
 
 **Every mode**
+- Every decision taken from model output (plan, route, verdict, next specialist) goes
+  through `structured()`: plain tool calling, which any OpenAI-compatible host supports,
+  plus one immediate retry. If it still fails, the workflow degrades to a safe default
+  and never crashes the run.
+- One-shot workflow steps (plan, route, synthesize) see the last few turns of the
+  conversation, so follow-ups like "now do the third one" work.
 - Model calls per run are capped (`agent/orchestration/reliability.py`, 25).
 - Transient model errors retry, then fall back to a second model if one is configured.
 - A failing tool retries once, then its error reaches the model as text, not as a crash.
@@ -38,7 +44,11 @@ Asking a model to behave is a suggestion. These are enforced.
 - If the classifier fails, a default route runs.
 
 **Planner**
-- The plan is structured output you can log.
+- The plan is structured output you can log. A malformed plan becomes one step.
+- After each round the orchestrator reviews the results and sends workers after the
+  gaps it finds, up to `MAX_PLAN_ROUNDS`. A malformed review counts as done.
+- At most `MAX_CONCURRENCY` workers call the model at once, because free hosts rate-limit.
+- Workers see only their own step, so the planner must resolve every reference in it.
 - Worker count is capped in code (`MAX_WORKERS`), not only in the prompt.
 - The planner prompt carries one example of a good decomposition and says to return one
   step for a focused question.
@@ -46,16 +56,21 @@ Asking a model to behave is a suggestion. These are enforced.
 - The worker node has a retry policy.
 
 **Evaluator**
+- The writer is the full simple agent, so it drafts with tools, memory and skills.
 - The grader is a separate call with its own prompt, and can be a separate model (`GRADER_*`).
   Models grade their own work too kindly.
 - The verdict is structured: `passed` plus specific `feedback`.
-- After `MAX_EVAL_ROUNDS` failures a human edits or accepts the draft.
+- After `MAX_EVAL_ROUNDS` failures, or at once if the grader breaks, a human edits or
+  accepts the draft. A broken grader never passes an unchecked draft.
 
 **Supervisor**
 - The supervisor never does the work. It picks one specialist per turn or finishes.
 - Specialists see only their instruction, not the whole conversation.
 - Control always returns to the supervisor, so every routing decision is on one audit trail.
 - Delegations are capped (`MAX_SUPERVISOR_HOPS`).
+- FINISH with an empty instruction returns the last specialist's answer word for word,
+  so long answers never travel inside JSON tool arguments.
+- A malformed decision ends the turn with the latest specialist result.
 
 ## Supervisor or swarm?
 

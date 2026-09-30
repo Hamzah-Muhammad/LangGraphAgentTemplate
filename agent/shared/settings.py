@@ -26,7 +26,9 @@ class Settings:
     todos: bool  # add the write_todos planning tool to the simple agent
     offload_chars: int  # tool results longer than this are saved to a file
     offload_dir: str  # where offloaded tool results live
-    max_workers: int  # planner fan-out cap
+    max_workers: int  # planner fan-out cap per round
+    max_concurrency: int  # planner workers calling the model at the same time
+    max_plan_rounds: int  # planner plan/review rounds per request
     max_eval_rounds: int  # evaluator-optimizer revision cap before human escalation
     max_supervisor_hops: int  # supervisor delegation cap
 
@@ -38,6 +40,8 @@ def get_settings() -> Settings:
         offload_chars=_int("OFFLOAD_CHARS", 20_000),
         offload_dir=os.getenv("OFFLOAD_DIR", ".agent_files"),
         max_workers=_int("MAX_WORKERS", 6),
+        max_concurrency=_int("MAX_CONCURRENCY", 3),
+        max_plan_rounds=_int("MAX_PLAN_ROUNDS", 2),
         max_eval_rounds=_int("MAX_EVAL_ROUNDS", 3),
         max_supervisor_hops=_int("MAX_SUPERVISOR_HOPS", 6),
     )

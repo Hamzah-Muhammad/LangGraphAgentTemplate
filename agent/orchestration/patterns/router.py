@@ -28,6 +28,8 @@ from langgraph.types import Command
 from pydantic import Field, create_model
 from typing_extensions import TypedDict
 
+from agent.context.history import latest_request, recent_conversation
+from agent.model.structured import structured
 from agent.shared.runtime import Context
 
 # (regex, route). First match wins. Case-insensitive.
@@ -64,7 +66,7 @@ def build_router_graph(
         "RouteChoice",
         route=(Literal[names], Field(description="The route name.")),  # type: ignore[valid-type]
     )
-    classifier = model.with_structured_output(route_choice)
+    classifier = structured(model, route_choice)
     menu = "\n".join(f"- {name}: {desc}" for name, (desc, _) in routes.items())
 
     def match_rules(text: str) -> str | None:
@@ -74,12 +76,17 @@ def build_router_graph(
         return None
 
     async def classify(state: RouterState) -> Command:
-        text = str(state["messages"][-1].content)
+        text = latest_request(state["messages"])
         route, how = match_rules(text), "rule"
         if route is None:
+            history = recent_conversation(state["messages"])
+            # Follow-ups ("and the other two?") only make sense with the earlier turns.
+            prompt = (
+                f"Conversation so far:\n{history}\n\nLatest request:\n{text}" if history else text
+            )
             try:
                 choice = await classifier.ainvoke(
-                    [SystemMessage(ROUTER_PROMPT.format(routes=menu)), HumanMessage(text)]
+                    [SystemMessage(ROUTER_PROMPT.format(routes=menu)), HumanMessage(prompt)]
                 )
                 route, how = choice.route, "model"
             except Exception:  # a broken classifier must not break the request

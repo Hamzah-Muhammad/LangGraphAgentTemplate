@@ -16,7 +16,9 @@ swarm (agents hand off to each other directly) only when the flow is unpredictab
 latency matters more than auditability.
 
 Specialists get only the instruction, not the whole conversation (private context),
-and return a distilled result. Delegations are capped (MAX_SUPERVISOR_HOPS).
+and return a distilled result. Delegations are capped (MAX_SUPERVISOR_HOPS), and the cap
+resets every turn. A malformed decision ends the turn with the latest specialist result
+instead of crashing. FINISH with an empty instruction returns that result verbatim.
 """
 
 from typing import Annotated, Any, Literal, NotRequired
@@ -32,6 +34,7 @@ from langgraph.types import Command
 from pydantic import Field, create_model
 from typing_extensions import TypedDict
 
+from agent.model.structured import structured
 from agent.shared.runtime import Context
 
 FINISH = "FINISH"
@@ -43,7 +46,8 @@ Team:
 
 Read the conversation so far. Then either:
 - pick ONE specialist for the next step and write it a self-contained instruction, or
-- pick FINISH and put the complete final answer for the user in `instruction`.
+- pick FINISH. Leave `instruction` empty to give the user the last specialist's result
+  exactly as written, or write a short final answer there yourself.
 Finish as soon as the request is fully answered. Do not repeat a step that already worked."""
 
 
@@ -66,9 +70,9 @@ def build_supervisor_graph(
     decision_schema = create_model(
         "SupervisorDecision",
         next=(Literal[names + (FINISH,)], Field(description="Specialist to call, or FINISH.")),  # type: ignore[valid-type]
-        instruction=(str, Field(description="Instruction for the specialist, or final answer.")),
+        instruction=(str, Field(default="", description="Instruction, or final answer.")),
     )
-    decide = model.with_structured_output(decision_schema)
+    decide = structured(model, decision_schema)
     roster = "\n".join(f"- {name}: {desc}" for name, (desc, _) in team.items())
 
     async def supervisor(state: SupervisorState) -> Command:
@@ -78,11 +82,20 @@ def build_supervisor_graph(
             note = f"Stopped after {max_hops} delegations. Latest result:\n\n{last}"
             return Command(goto=END, update={"messages": [AIMessage(note, name="supervisor")]})
 
-        d = await decide.ainvoke(
-            [SystemMessage(SUPERVISOR_PROMPT.format(team=roster)), *state["messages"]]
-        )
+        last_result = next(
+            (str(m.content) for m in reversed(state["messages"])
+             if m.type == "ai" and getattr(m, "name", None) in team), "")
+        try:
+            d = await decide.ainvoke(
+                [SystemMessage(SUPERVISOR_PROMPT.format(team=roster)), *state["messages"]]
+            )
+        except Exception:  # malformed decision: stop cleanly with what the team has
+            text = last_result or "I could not coordinate this request. Please rephrase it."
+            return Command(goto=END, update={"messages": [AIMessage(text, name="supervisor")]})
         if d.next == FINISH:
-            answer = AIMessage(content=d.instruction, name="supervisor")
+            # Empty instruction = hand over the specialist's own words. Long answers stay
+            # out of JSON tool arguments, where open models often mangle them.
+            answer = AIMessage(content=d.instruction or last_result, name="supervisor")
             return Command(goto=END, update={"messages": [answer]})
         return Command(goto=d.next, update={"instruction": d.instruction, "hops": hops + 1})
 
