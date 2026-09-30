@@ -6,7 +6,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from agent.model.model import build_fallback_model, build_model
+from agent.model.model import build_fallback_model, build_model, describe_models
 from agent.orchestration.graph import build_graph
 from evals.runner import fresh_checkpointer, load_cases, run_all
 
@@ -15,6 +15,7 @@ async def main() -> int:
     load_dotenv()
     if os.getenv("LANGSMITH_API_KEY"):
         os.environ.setdefault("LANGSMITH_TRACING", "true")
+    print("\n".join(describe_models()), file=sys.stderr)
     model, fallback = build_model(), build_fallback_model()
 
     async def factory(case):

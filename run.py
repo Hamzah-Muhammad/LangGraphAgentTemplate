@@ -8,6 +8,8 @@ CLI entry point. Wires env -> blocks -> graph, then streams a chat loop.
     python run.py --mode supervisor        coordinator + researcher + writer
     python run.py --thread demo --user bob separate memory thread, different user namespace
     python run.py --once "hello"           single turn, then exit
+    python run.py --provider claude-code --model haiku    switch model for this run only
+                                           (the normal switch is MODEL_PROVIDER in .env)
 
 Time travel (debugging):
     python run.py --thread demo --history           list checkpoints, newest first
@@ -44,7 +46,14 @@ if os.getenv("LANGSMITH_API_KEY"):
     os.environ.setdefault("LANGSMITH_TRACING", "true")
 
 from agent.memory.store import open_memory  # noqa: E402
-from agent.model.model import build_fallback_model, build_grader_model, build_model  # noqa: E402
+from agent.model.model import (  # noqa: E402
+    PROVIDERS,
+    ConfigError,
+    build_fallback_model,
+    build_grader_model,
+    build_model,
+    describe_models,
+)
 from agent.orchestration.graph import MODES, build_graph  # noqa: E402
 from agent.shared.runtime import Context  # noqa: E402
 from agent.shared.usage import UsageCounter, with_counter  # noqa: E402
@@ -151,8 +160,20 @@ async def print_history(graph, config) -> None:
         print(f"{snap.metadata.get('step', ''):>4}  {cid}  {nxt:<12}  {last}")
 
 
+def apply_model_flags(provider: str | None, model: str | None) -> None:
+    """--provider / --model override .env for this run only (primary model)."""
+    if provider:
+        os.environ["MODEL_PROVIDER"] = provider
+    if model:
+        active = os.getenv("MODEL_PROVIDER") or "openai"
+        os.environ["CLAUDE_MODEL" if active == "claude-code" else "OPENAI_MODEL_NAME"] = model
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--provider", choices=PROVIDERS,
+                        help="override MODEL_PROVIDER for this run")
+    parser.add_argument("--model", help="override the primary model name for this run")
     parser.add_argument("--mode", choices=MODES, default="simple")
     parser.add_argument("--thread", default="default", help="memory thread id")
     parser.add_argument("--user", default=os.getenv("DEFAULT_USER_ID", "anonymous"))
@@ -160,6 +181,9 @@ async def main() -> None:
     parser.add_argument("--history", action="store_true", help="list checkpoints and exit")
     parser.add_argument("--replay", metavar="CHECKPOINT_ID", help="re-run from a checkpoint")
     args = parser.parse_args()
+
+    apply_model_flags(args.provider, args.model)
+    print("\n".join(describe_models()), file=sys.stderr)  # which model is active, every start
 
     async with open_memory() as (checkpointer, store):
         graph = await build_graph(
@@ -197,4 +221,8 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except ConfigError as error:  # a settings mistake: say what to fix, no traceback
+        print(f"\nConfiguration problem: {error}", file=sys.stderr)
+        sys.exit(2)

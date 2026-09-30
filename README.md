@@ -114,12 +114,103 @@ fails, and the rules each one enforces in code.
 cd C:\Apps\LangGraphAgentTemplate
 python -m venv .venv
 .venv\Scripts\pip install -e ".[dev]"
-copy .env.example .env      # then fill in the values
+copy .env.example .env
 ```
+
+Then choose your model (next section). Everything else in `.env` has a working default.
+
+## Choose your model
+
+One line in `.env` decides where the model comes from: **`MODEL_PROVIDER`**.
+
+| | Option A: API-style LLM | Option B: Claude login |
+|---|---|---|
+| `MODEL_PROVIDER` | `openai` (the default) | `claude-code` |
+| What you need | An API key on any OpenAI-compatible host: Groq, NVIDIA NIM, OpenRouter, Together, OpenAI, or a local vLLM / Ollama server | A Claude Pro or Max plan, with Claude Code installed and signed in |
+| Lines to fill in | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL_NAME` | `CLAUDE_MODEL` (`haiku`, `sonnet`, `opus` or a full model id) |
+| Extra install | none | `.venv\Scripts\pip install -e ".[claude]"` |
+| Who bills you | the host, per token | nobody extra: it draws from your Claude plan limits |
+| Replies | streamed token by token | arrive whole |
+
+### Switch from an API-style LLM to Claude
+
+1. Install the extra once: `.venv\Scripts\pip install -e ".[claude]"`
+2. Sign in once: run `claude`, then `/login`.
+3. In `.env`, change one line and pick a model:
+
+   ```
+   MODEL_PROVIDER=claude-code
+   CLAUDE_MODEL=sonnet
+   ```
+
+The `OPENAI_*` lines can stay; they are ignored while the provider is `claude-code`.
+
+### Switch back to an API-style LLM
+
+Change the one line back. The `OPENAI_*` lines must be filled in.
+
+```
+MODEL_PROVIDER=openai
+```
+
+### Switch for one run only
+
+No file edit needed. The flags override `.env` for that run:
+
+```powershell
+.venv\Scripts\python run.py --provider claude-code --model haiku
+.venv\Scripts\python run.py --provider openai --model llama-3.3-70b-versatile
+```
+
+### Check which one is active
+
+Every start prints it on the first line:
+
+```
+[model] primary = claude-code: sonnet (Claude login, no API key)
+[model] primary = openai-compatible: llama-3.3-70b-versatile @ api.groq.com
+```
+
+### Mix them
+
+There are three model roles, and each has its own switch with the same two values:
+
+| Role | Switch | Model lines | Used for |
+|---|---|---|---|
+| Primary | `MODEL_PROVIDER` | `OPENAI_*` or `CLAUDE_MODEL` | every normal call |
+| Fallback | `FALLBACK_PROVIDER` | `FALLBACK_API_KEY`, `FALLBACK_BASE_URL`, `FALLBACK_MODEL_NAME` | one call, when the primary keeps failing |
+| Grader | `GRADER_PROVIDER` | `GRADER_API_KEY`, `GRADER_BASE_URL`, `GRADER_MODEL_NAME` | grading drafts in evaluator mode |
+
+For a Claude fallback or grader, set its switch to `claude-code` and put the Claude model
+in its `*_MODEL_NAME` line; the key and URL lines are not needed. Example: a free Groq
+model as primary with Claude grading.
+
+```
+MODEL_PROVIDER=openai
+GRADER_PROVIDER=claude-code
+GRADER_MODEL_NAME=sonnet
+```
+
+The switch is read once at startup. Nothing changes provider in the middle of a run,
+except the fallback taking over a failed call.
+
+### How the Claude option works
+
+Calls go through the official Claude Agent SDK and the Claude Code CLI
+(`agent/model/claude_code.py`). The template stays in charge: Claude Code's own tools, your
+MCP servers and your machine settings are switched off, Claude only decides which template
+tool to call, and the template runs it. So approval, timeouts, retries and evals work as
+with any other model.
+
+Anthropic's rules for subscription use with the Agent SDK have changed before. If this
+stops working, check https://support.claude.com/en/articles/15036540 and switch
+`MODEL_PROVIDER` back to `openai`.
+
+## All settings
 
 | `.env` key | Purpose |
 |---|---|
-| `MODEL_PROVIDER` | `openai` (default, any OpenAI-compatible host) or `claude-code` (your Claude login, no key). `FALLBACK_PROVIDER` and `GRADER_PROVIDER` work the same way. |
+| `MODEL_PROVIDER`, `FALLBACK_PROVIDER`, `GRADER_PROVIDER` | `openai` or `claude-code`. See "Choose your model". |
 | `CLAUDE_MODEL` | With `claude-code`: `haiku`, `sonnet`, `opus` or a full model id. |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL_NAME` | Primary model on any OpenAI-compatible host (Groq, NVIDIA NIM, OpenRouter, local vLLM or Ollama). |
 | `FALLBACK_*` (same three) | Optional second model used after retries fail. |
@@ -135,30 +226,6 @@ copy .env.example .env      # then fill in the values
 | `MEMORY_INJECT`, `MEMORY_INJECT_LIMIT` | Put the user's saved facts into the system prompt, and how many. |
 | `MCP_STRICT` | `true` makes a failing MCP server stop startup instead of being skipped. |
 | `PRICE_IN_PER_M`, `PRICE_OUT_PER_M` | Optional USD per 1M tokens for the cost line. |
-
-## Using Claude with your Claude plan (no API key)
-
-```powershell
-.venv\Scripts\pip install -e ".[claude]"
-claude            # once: install Claude Code, run it, and sign in with /login
-```
-
-Then in `.env`:
-
-```
-MODEL_PROVIDER=claude-code
-CLAUDE_MODEL=sonnet
-```
-
-Calls go through the official Claude Agent SDK and the Claude Code CLI, and draw from
-your Pro or Max plan limits. The template stays in charge: Claude Code's own tools, MCP
-servers and machine settings are switched off, Claude only decides which template tool to
-call, and the template runs it. So approval, timeouts, retries and evals work as with any
-other model. Replies are not streamed token by token in this mode.
-
-Anthropic's rules for subscription use with the Agent SDK have changed before. If this
-stops working, check https://support.claude.com/en/articles/15036540 and switch
-`MODEL_PROVIDER` back to `openai`.
 
 ## Run
 
