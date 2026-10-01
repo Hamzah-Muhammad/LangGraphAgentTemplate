@@ -9,6 +9,15 @@ It is not an agent. You are most likely here to build one on top of it. Detail l
 PLACEHOLDER. When the agent is built, replace this line with two sentences saying what it
 is for, who uses it, and what it must never do.
 
+## Start here
+
+1. `python scripts/setup.py`, then `python -m pytest -q`. It must pass before you change anything.
+2. Ask the user for what the template cannot guess: the agent's purpose, its tools, the model,
+   and which actions need human approval. Do not invent them.
+3. Follow the eight steps in `README.md` ("Build an agent from this template"), in order.
+4. Replace the placeholders below, then run `python -m evals` against the real model.
+5. Before launch, work through the checklist in `docs/DEPLOY.md`.
+
 ## Commands
 
 Run after every change. All three must stay green.
@@ -44,11 +53,20 @@ the rule only holds if you follow it. A subagent built the wrong way passes ever
    (`scripts/check_secrets.py`, `tests/test_no_secrets.py`).
 8. **Logs.** Never print a URL, header or raw error that could hold a credential. Print the
    host and the error type only.
+9. **Memory.** Saved facts are read into the system prompt, so `remember` is a write path
+   into the prompt. Keep it bounded (length cap, one copy per fact) and decide on
+   `MEMORY_REQUIRE_APPROVAL`. Memory is per user; never read or write another user's
+   namespace. On a server the user comes from auth (`tests/test_hardening.py`).
 
 ## Placeholders to replace, not ship
 
 `agent/prompt/system.md`, `agent/tools/example_tool.py`, `agent/prompt/skills/write-report/`,
 `agent/orchestration/subagents/team.py`, and the cases in `evals/cases.jsonl`.
+
+## Not verified in this repo
+
+A real run on an OpenAI-compatible host; approval prompts on a real model; the auth handler,
+Postgres swap and `langgraph build` recipes in `docs/DEPLOY.md`. Test them before relying on them.
 
 ## Done means
 
