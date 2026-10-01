@@ -1,3 +1,4 @@
+# agent/orchestration/approval.py  |  BLOCK 6 ORCHESTRATION
 """
 HUMAN-IN-THE-LOOP GATE (part of Orchestration, kept separate so it is easy to find)
 

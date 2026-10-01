@@ -1,3 +1,4 @@
+# agent/tools/example_tool.py  |  BLOCK 2 TOOLS
 """
 Placeholder tool. Copy this file to make a real one.
 
