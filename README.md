@@ -24,8 +24,9 @@ Replace them; do not ship them.
 The order a developer or a coding agent should follow. Each step names the one place to
 change, so nothing else needs touching.
 
-1. **Copy the template** into a new repo and run the tests: `python -m pytest -q`.
-   They need no key and must pass before you change anything.
+1. **Copy the template** into a new repo, run `python scripts/setup.py` once (turns on the
+   secret guard, creates `.env`), then the tests: `python -m pytest -q`. They need no key
+   and must pass before you change anything.
 2. **Pick a model** in `.env` (see "Choose your model").
 3. **Write the purpose** in `agent/prompt/system.md`: what the agent is for, its rules,
    its tone. Keep enforcement out of the prompt; that belongs in tools and approval.
@@ -162,7 +163,7 @@ with every key blank. Turn on the commit guard once per clone, so a key or a `.e
 is refused before a commit is even created:
 
 ```powershell
-git config core.hooksPath .githooks
+python scripts/setup.py          # same as: git config core.hooksPath .githooks
 ```
 
 The same check runs in CI (`tests/test_no_secrets.py`), and you can run it yourself:
