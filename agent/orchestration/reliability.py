@@ -34,8 +34,6 @@ from langchain_core.language_models import BaseChatModel
 
 from agent.shared.settings import get_settings
 
-MAX_MODEL_CALLS_PER_RUN = 25
-
 
 class ToolTimeout(AgentMiddleware):
     """Cancel a tool call that runs too long. Sits INSIDE the retry wrapper."""
@@ -64,7 +62,7 @@ def build_reliability_middleware(
     fallback_model: BaseChatModel | None = None, long_running_tools: set[str] | None = None
 ) -> list:
     middleware = [
-        ModelCallLimitMiddleware(run_limit=MAX_MODEL_CALLS_PER_RUN, exit_behavior="end"),
+        ModelCallLimitMiddleware(run_limit=get_settings().max_model_calls, exit_behavior="end"),
     ]
     if fallback_model is not None:
         # Outer: fallback. Inner: retry primary, re-raise when exhausted so fallback runs.

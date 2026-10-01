@@ -40,6 +40,9 @@ class Settings:
     tool_timeout_s: float  # one tool call (subagent tools are exempt)
     memory_inject: bool  # put the user's saved facts into the system prompt
     memory_inject_limit: int  # how many saved facts at most
+    memory_fact_max_chars: int  # `remember` rejects a longer fact
+    memory_require_approval: bool  # gate `remember` and `forget` behind human approval
+    max_model_calls: int  # hard cap on model calls in one run of one agent
 
 
 def get_settings() -> Settings:
@@ -57,4 +60,7 @@ def get_settings() -> Settings:
         tool_timeout_s=_float("TOOL_TIMEOUT_S", 60),
         memory_inject=_bool("MEMORY_INJECT", True),
         memory_inject_limit=_int("MEMORY_INJECT_LIMIT", 10),
+        memory_fact_max_chars=_int("MEMORY_FACT_MAX_CHARS", 500),
+        memory_require_approval=_bool("MEMORY_REQUIRE_APPROVAL", False),
+        max_model_calls=_int("MAX_MODEL_CALLS", 25),
     )

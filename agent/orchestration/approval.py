@@ -11,6 +11,8 @@ This is enforcement in code, not a prompt instruction. The model cannot skip it.
 
 from langchain.agents.middleware import HumanInTheLoopMiddleware
 
+from agent.shared.settings import get_settings
+
 # tool name -> True (all three decisions allowed) or a dict of allowed decisions.
 # PLACEHOLDER: gates the example tool so you can see the pause happen.
 INTERRUPT_ON = {
@@ -19,7 +21,11 @@ INTERRUPT_ON = {
 
 
 def build_approval_middleware() -> HumanInTheLoopMiddleware:
+    gated = dict(INTERRUPT_ON)
+    if get_settings().memory_require_approval:
+        # Saved facts reach the system prompt, so a poisoned `remember` is a prompt attack.
+        gated |= {"remember": True, "forget": True}
     return HumanInTheLoopMiddleware(
-        interrupt_on=INTERRUPT_ON,
+        interrupt_on=gated,
         description_prefix="Tool call needs your approval",
     )
