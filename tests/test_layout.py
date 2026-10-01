@@ -24,7 +24,9 @@ def test_langgraph_json_points_at_real_graphs():
         file_part, _, attr = spec.partition(":")
         target = ROOT / file_part
         assert target.is_file(), f"{name}: {file_part} does not exist"
-        assert f"def {attr}(" in target.read_text(encoding="utf-8") or f"{attr} =" in target.read_text(encoding="utf-8"), f"{name}: {attr} not in {file_part}"
+        source = target.read_text(encoding="utf-8")
+        defined = f"def {attr}(" in source or f"{attr} =" in source
+        assert defined, f"{name}: {attr} not in {file_part}"
 
 
 def test_agent_has_exactly_one_folder_per_block_plus_shared():
