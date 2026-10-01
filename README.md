@@ -42,8 +42,9 @@ change, so nothing else needs touching.
 **Rules for a coding agent.** They live in [`AGENTS.md`](AGENTS.md), the file coding
 agents load automatically when they open a repo. It holds eight hard rules, each pinned by
 a test, plus the commands to run after every change. A developer should read it too.
-Claude Code reads it natively from version 2.1.277; on an older version, tell it to read
-`AGENTS.md` first.
+Claude Code reads it natively from version 2.1.277. `CLAUDE.md` is a one-line file that
+forwards to it, so older Claude Code versions find the rules too. Edit `AGENTS.md`, never
+`CLAUDE.md`, and delete that file once older versions no longer matter.
 
 ## Structure
 
@@ -120,6 +121,7 @@ LangGraphAgentTemplate/
 ├── pyproject.toml                  dependencies, ruff, pytest
 ├── .env.example                    every setting, with defaults
 ├── AGENTS.md                       rules and commands for coding agents (loaded automatically)
+├── CLAUDE.md                       one line: forwards older Claude Code versions to AGENTS.md
 ├── scripts/check_secrets.py        secret guard: blocks keys and .env files from git
 ├── .githooks/pre-commit            runs the secret guard before every commit
 ├── evals/                          cases.jsonl (answer + tool path), runner, `python -m evals`
