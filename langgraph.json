@@ -2,11 +2,11 @@
   "$schema": "https://langgra.ph/schema.json",
   "dependencies": ["."],
   "graphs": {
-    "simple": "./agent/studio.py:simple",
-    "planner": "./agent/studio.py:planner",
-    "router": "./agent/studio.py:router",
-    "evaluator": "./agent/studio.py:evaluator",
-    "supervisor": "./agent/studio.py:supervisor"
+    "simple": "./agent/orchestration/studio.py:simple",
+    "planner": "./agent/orchestration/studio.py:planner",
+    "router": "./agent/orchestration/studio.py:router",
+    "evaluator": "./agent/orchestration/studio.py:evaluator",
+    "supervisor": "./agent/orchestration/studio.py:supervisor"
   },
   "env": ".env",
   "image_distro": "wolfi"

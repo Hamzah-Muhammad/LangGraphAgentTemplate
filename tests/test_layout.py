@@ -1,5 +1,6 @@
 """The layout is part of the template. These tests stop it drifting."""
 
+import json
 from pathlib import Path
 
 from agent.prompt.loader import PROMPT_PATH
@@ -14,6 +15,16 @@ def test_config_paths_resolve():
     assert PROMPT_PATH.is_file()
     assert SKILLS_DIR.is_dir()
     assert CONFIG_PATH.is_file()
+
+
+def test_langgraph_json_points_at_real_graphs():
+    """`langgraph dev` failed on a stale path once (studio.py moved in the restructure)."""
+    graphs = json.loads((ROOT / "langgraph.json").read_text(encoding="utf-8"))["graphs"]
+    for name, spec in graphs.items():
+        file_part, _, attr = spec.partition(":")
+        target = ROOT / file_part
+        assert target.is_file(), f"{name}: {file_part} does not exist"
+        assert f"def {attr}(" in target.read_text(encoding="utf-8") or f"{attr} =" in target.read_text(encoding="utf-8"), f"{name}: {attr} not in {file_part}"
 
 
 def test_agent_has_exactly_one_folder_per_block_plus_shared():
