@@ -19,7 +19,8 @@ Run after every change. All three must stay green.
 
 ## Hard rules
 
-Each rule is pinned by a test. Break one and a test fails.
+Each rule has a test for the code that exists today. A test cannot see code you add, so
+the rule only holds if you follow it. A subagent built the wrong way passes every test.
 
 1. **Layout.** One folder per building block under `agent/`: model, tools, prompt, context,
    memory, orchestration, plus shared. No other folders. A new file starts with the header

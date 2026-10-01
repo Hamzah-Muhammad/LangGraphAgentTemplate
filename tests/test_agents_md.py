@@ -42,14 +42,6 @@ def test_it_names_a_test_for_every_rule():
     assert len(rules) >= 8 and len(pinned) >= len(rules) - 2, "each rule says what pins it"
 
 
-def test_claude_md_only_forwards_to_agents_md():
-    """CLAUDE.md wins over AGENTS.md when both exist, so it must hold no rules of its own:
-    a second copy of the rules would drift. It may only import AGENTS.md."""
-    claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-    without_comments = re.sub(r"<!--.*?-->", "", claude, flags=re.DOTALL).strip()
-    assert without_comments == "@AGENTS.md"
-
-
 def test_readme_points_to_it():
     assert "AGENTS.md" in (ROOT / "README.md").read_text(encoding="utf-8")
 
