@@ -12,7 +12,7 @@ Do not rely on prompt wording to enforce it. Keep read tools and write tools sep
 
 from agent.tools.example_tool import example_tool
 from agent.tools.files import read_file
-from agent.tools.memory_tools import recall, remember
+from agent.tools.memory_tools import forget, recall, remember
 from agent.tools.skills import load_skill
 
 # Add new tools to this list. Order does not matter to the model; descriptions do.
@@ -20,6 +20,7 @@ ALL_TOOLS = [
     example_tool,
     remember,
     recall,
+    forget,
     read_file,
     load_skill,
 ]

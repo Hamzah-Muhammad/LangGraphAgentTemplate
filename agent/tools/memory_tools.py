@@ -3,19 +3,32 @@
 Long-term memory tools. Backed by the LangGraph Store (BLOCK 5), namespaced per user.
 
 The model decides WHEN to remember; the Store decides WHERE it lives. Facts survive
-across threads and restarts. `runtime.context.user_id` comes from agent/shared/runtime.py.
+across threads and restarts. The user comes from `resolve_user_id` in agent/memory/store.py.
+
+Saved facts are read back into the system prompt (agent/memory/inject.py), so these tools
+are a write path into the prompt. They are bounded in code: a fact has a length cap, the
+same fact is stored once, and MEMORY_REQUIRE_APPROVAL=true puts a human in front of both
+`remember` and `forget` (agent/orchestration/approval.py).
 """
 
-from uuid import uuid4
+import hashlib
 
 from langchain.tools import ToolRuntime, tool
 
 from agent.memory.store import memory_namespace
 from agent.shared.runtime import Context
+from agent.shared.settings import get_settings
+
+SCAN_LIMIT = 200  # facts looked at by forget
 
 
 def _namespace(runtime: ToolRuntime) -> tuple[str, str]:
-    return memory_namespace(runtime.context)
+    return memory_namespace(runtime.context, runtime.config)
+
+
+def _key(fact: str) -> str:
+    """Same fact (ignoring case and spacing) -> same key, so saving it twice is a no-op."""
+    return hashlib.sha256(" ".join(fact.lower().split()).encode()).hexdigest()[:32]
 
 
 @tool
@@ -24,7 +37,16 @@ async def remember(fact: str, runtime: ToolRuntime[Context]) -> str:
     Use only for things worth keeping long-term (name, preferences, standing rules)."""
     if runtime.store is None:
         return "error: no store configured"
-    await runtime.store.aput(_namespace(runtime), str(uuid4()), {"fact": fact})
+    fact = " ".join(fact.split())
+    limit = get_settings().memory_fact_max_chars
+    if not fact:
+        return "error: nothing to remember"
+    if len(fact) > limit:
+        return f"error: fact is {len(fact)} characters, the limit is {limit}. Shorten it."
+    namespace, key = _namespace(runtime), _key(fact)
+    if await runtime.store.aget(namespace, key) is not None:
+        return f"already remembered: {fact}"
+    await runtime.store.aput(namespace, key, {"fact": fact})
     return f"remembered: {fact}"
 
 
@@ -40,3 +62,24 @@ async def recall(topic: str, runtime: ToolRuntime[Context]) -> str:
     if not items:
         return "no saved facts"
     return "\n".join(f"- {item.value['fact']}" for item in items)
+
+
+@tool
+async def forget(topic: str, runtime: ToolRuntime[Context]) -> str:
+    """Delete saved facts about the user that contain the given words. Use when the user
+    asks you to forget something or says a saved fact is wrong."""
+    if runtime.store is None:
+        return "error: no store configured"
+    needle = " ".join(topic.lower().split())
+    if len(needle) < 3:
+        return "error: give at least 3 characters so one call cannot wipe everything"
+    namespace = _namespace(runtime)
+    removed = []
+    for item in await runtime.store.asearch(namespace, limit=SCAN_LIMIT):
+        fact = item.value.get("fact", "")
+        if needle in " ".join(fact.lower().split()):
+            await runtime.store.adelete(namespace, item.key)
+            removed.append(fact)
+    if not removed:
+        return "no saved fact matched"
+    return "forgot:\n" + "\n".join(f"- {fact}" for fact in removed)

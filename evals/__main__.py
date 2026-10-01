@@ -5,8 +5,14 @@ import os
 import sys
 
 from dotenv import load_dotenv
+from langgraph.store.memory import InMemoryStore
 
-from agent.model.model import build_fallback_model, build_model, describe_models
+from agent.model.model import (
+    build_fallback_model,
+    build_grader_model,
+    build_model,
+    describe_models,
+)
 from agent.orchestration.graph import build_graph
 from evals.runner import fresh_checkpointer, load_cases, run_all
 
@@ -17,13 +23,15 @@ async def main() -> int:
         os.environ.setdefault("LANGSMITH_TRACING", "true")
     print("\n".join(describe_models()), file=sys.stderr)
     model, fallback = build_model(), build_fallback_model()
+    judge = build_grader_model() or model  # a different model judges more honestly
 
     async def factory(case):
         return await build_graph(
-            model, mode=case.mode, fallback_model=fallback, checkpointer=fresh_checkpointer()
+            model, mode=case.mode, fallback_model=fallback,
+            checkpointer=fresh_checkpointer(), store=InMemoryStore(),  # memory cases need one
         )
 
-    results = await run_all(factory, load_cases())
+    results = await run_all(factory, load_cases(), judge_model=judge)
     for r in results:
         mark = "PASS" if r.passed else "FAIL"
         print(f"{mark}  {r.case.id}  tools={r.tools}  {'; '.join(r.reasons)}")

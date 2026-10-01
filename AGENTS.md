@@ -40,7 +40,7 @@ the rule only holds if you follow it. A subagent built the wrong way passes ever
 6. **Loops.** Every loop has a cap in code. Per-request state resets at the start of each
    turn (`tests/test_run_hardening.py`).
 7. **Secrets.** Keys live only in `.env`, which git ignores. Never commit a key, a token or
-   a `.env` file. Turn the guard on once per clone: `git config core.hooksPath .githooks`
+   a `.env` file. Turn the guard on once per clone: `python scripts/setup.py`
    (`scripts/check_secrets.py`, `tests/test_no_secrets.py`).
 8. **Logs.** Never print a URL, header or raw error that could hold a credential. Print the
    host and the error type only.

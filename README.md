@@ -24,8 +24,9 @@ Replace them; do not ship them.
 The order a developer or a coding agent should follow. Each step names the one place to
 change, so nothing else needs touching.
 
-1. **Copy the template** into a new repo and run the tests: `python -m pytest -q`.
-   They need no key and must pass before you change anything.
+1. **Copy the template** into a new repo, run `python scripts/setup.py` once (turns on the
+   secret guard, creates `.env`), then the tests: `python -m pytest -q`. They need no key
+   and must pass before you change anything.
 2. **Pick a model** in `.env` (see "Choose your model").
 3. **Write the purpose** in `agent/prompt/system.md`: what the agent is for, its rules,
    its tone. Keep enforcement out of the prompt; that belongs in tools and approval.
@@ -65,7 +66,7 @@ LangGraphAgentTemplate/
 │   ├── tools/                      BLOCK 2  TOOLS: what the agent can do
 │   │   ├── __init__.py             ALL_TOOLS: register every Python tool here
 │   │   ├── example_tool.py         placeholder tool to copy
-│   │   ├── memory_tools.py         remember / recall, per user (writes to BLOCK 5)
+│   │   ├── memory_tools.py         remember / recall / forget, per user (writes to BLOCK 5)
 │   │   ├── files.py                read_file, only this thread's offloaded results (BLOCK 4)
 │   │   ├── skills.py               load_skill, pulls a skill body (BLOCK 3)
 │   │   └── mcp.py                  loads servers from mcp_servers.json as tools
@@ -125,6 +126,7 @@ LangGraphAgentTemplate/
 ├── evals/                          cases.jsonl (answer + tool path), runner, `python -m evals`
 ├── tests/                          fake-model tests, no key or network needed
 ├── docs/PATTERNS.md                when to use each mode, its cost, how it fails
+├── docs/DEPLOY.md                  server, auth, Postgres, build, pre-launch checklist
 └── .github/workflows/ci.yml        ruff + pytest on every push
 ```
 
@@ -162,7 +164,7 @@ with every key blank. Turn on the commit guard once per clone, so a key or a `.e
 is refused before a commit is even created:
 
 ```powershell
-git config core.hooksPath .githooks
+python scripts/setup.py          # same as: git config core.hooksPath .githooks
 ```
 
 The same check runs in CI (`tests/test_no_secrets.py`), and you can run it yourself:
@@ -272,7 +274,9 @@ stops working, check https://support.claude.com/en/articles/15036540 and switch
 | `MAX_WORKERS`, `MAX_CONCURRENCY`, `MAX_PLAN_ROUNDS` | Planner: workers per round, workers calling the model at once, plan/review rounds. |
 | `MAX_EVAL_ROUNDS`, `MAX_SUPERVISOR_HOPS` | Caps for the evaluator and supervisor. |
 | `REQUEST_TIMEOUT_S`, `TOOL_TIMEOUT_S` | Deadline for one model request and for one tool call. |
-| `MEMORY_INJECT`, `MEMORY_INJECT_LIMIT` | Put the user's saved facts into the system prompt, and how many. |
+| `MEMORY_INJECT`, `MEMORY_INJECT_LIMIT` | Put the user's newest saved facts into the system prompt, and how many. |
+| `MEMORY_FACT_MAX_CHARS`, `MEMORY_REQUIRE_APPROVAL` | Longest fact `remember` accepts; `true` makes `remember` and `forget` wait for a human. |
+| `MAX_MODEL_CALLS` | Hard cap on model calls in one run of one agent (default 25). |
 | `MCP_STRICT` | `true` makes a failing MCP server stop startup instead of being skipped. |
 | `PRICE_IN_PER_M`, `PRICE_OUT_PER_M` | Optional USD per 1M tokens for the cost line. |
 
