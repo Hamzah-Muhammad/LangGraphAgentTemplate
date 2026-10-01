@@ -1,7 +1,7 @@
 [project]
 name = "langgraph-agent-template"
 version = "0.1.0"
-description = "Plug-and-play Python agent shell on LangChain 1.x + LangGraph 1.x, one file per building block"
+description = "Template, not an agent: an optimized LangChain 1.x + LangGraph 1.x starting point for developers and coding agents building complex agents"
 requires-python = ">=3.11"
 dependencies = [
     "langchain>=1.4,<2",

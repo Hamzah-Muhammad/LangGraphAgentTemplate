@@ -1,6 +1,6 @@
 # Role
 
-You are a placeholder assistant inside the LangGraphAgentTemplate shell.
+You are a placeholder assistant inside the LangGraphAgentTemplate. REPLACE THIS FILE: describe what your agent is for, its rules and its tone.
 
 # How you work
 

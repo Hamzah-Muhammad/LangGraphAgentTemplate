@@ -1,14 +1,53 @@
 # LangGraphAgentTemplate
 
-A plug-and-play Python agent template on **LangChain 1.x + LangGraph 1.x**, laid out
-around the six building blocks of an agent.
+> **This is a template, not an agent.** It does nothing useful out of the box. It is an
+> optimized starting point that a developer, or a coding agent such as Claude Code, copies
+> and fills in to build a real agent on **LangChain 1.x + LangGraph 1.x**.
 
-Simple things stay simple: edit a Markdown prompt, drop a tool in a folder, flip an MCP
-server on in JSON, add a skill as a Markdown file. Complex work is already wired: five
-workflow modes (tool loop, router, planner with parallel workers, evaluator-optimizer,
-supervisor with specialists), human approval, per-user long-term memory, context
-compaction, large-result offload, retries and fallback, trajectory evals, time travel,
-tracing and CI.
+**What you get.** The hard, easy-to-get-wrong parts of an agent, already built and tested,
+laid out around the six building blocks of an agent: five workflow modes (tool loop,
+router, planner with parallel workers, evaluator-optimizer, supervisor with specialists),
+human approval, per-user long-term memory, context compaction, large-result offload,
+retries, fallback and timeouts, trajectory evals, time travel, a secret guard, tracing
+and CI. It runs on any OpenAI-compatible model or on Claude through a Claude login.
+
+**What you add.** Everything that makes it your agent: its purpose and rules
+(`agent/prompt/system.md`), its tools (`agent/tools/`), its procedures
+(`agent/prompt/skills/`), and the eval cases that define "working" (`evals/cases.jsonl`).
+
+**What is a placeholder.** The system prompt, `example_tool`, the `write-report` skill,
+the researcher and writer team, and the eval cases are stand-ins that show the shape.
+Replace them; do not ship them.
+
+## Build an agent from this template
+
+The order a developer or a coding agent should follow. Each step names the one place to
+change, so nothing else needs touching.
+
+1. **Copy the template** into a new repo and run the tests: `python -m pytest -q`.
+   They need no key and must pass before you change anything.
+2. **Pick a model** in `.env` (see "Choose your model").
+3. **Write the purpose** in `agent/prompt/system.md`: what the agent is for, its rules,
+   its tone. Keep enforcement out of the prompt; that belongs in tools and approval.
+4. **Add tools**: one file per tool in `agent/tools/`, registered in
+   `agent/tools/__init__.py`. Delete `example_tool`. Put validation inside the tool.
+5. **Gate risky tools**: list any tool that writes, spends or sends in
+   `agent/orchestration/approval.py`.
+6. **Pick a workflow mode** using `docs/PATTERNS.md`. Start with `simple`; move up only
+   when an eval shows it losing.
+7. **Replace the eval cases** in `evals/cases.jsonl` with real requests your agent must
+   handle, including the tool path it should take. Run `python -m evals`.
+8. **Remove what you do not use**: unused modes, the placeholder skill and team.
+
+**Rules a coding agent must keep while building** (each one is pinned by a test):
+
+- One folder per building block under `agent/`. Do not add files elsewhere in `agent/`,
+  and add every new file to the Structure tree below (`tests/test_layout.py`).
+- Middleware order in `agent/orchestration/graph.py` is load-bearing; do not reorder it
+  without reading `agent/orchestration/reliability.py`.
+- Every decision taken from model output goes through `agent/model/structured.py`.
+- Never commit a key or a `.env` file (`scripts/check_secrets.py`, `tests/test_no_secrets.py`).
+- Run `ruff check .` and `python -m pytest -q` after every change.
 
 ## Structure
 
@@ -309,5 +348,5 @@ never run, and how many calls were allowed. CI runs ruff and pytest on every pus
 
 ## Disclaimer
 
-Template code, no warranty. Any tool or MCP server you enable runs with your local
+This is a template for building agents, not a finished agent. Template code, no warranty. Any tool or MCP server you enable runs with your local
 permissions. Review tools before wiring them into an agent that can act for you.
