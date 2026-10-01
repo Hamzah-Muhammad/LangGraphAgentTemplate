@@ -39,15 +39,11 @@ change, so nothing else needs touching.
    handle, including the tool path it should take. Run `python -m evals`.
 8. **Remove what you do not use**: unused modes, the placeholder skill and team.
 
-**Rules a coding agent must keep while building** (each one is pinned by a test):
-
-- One folder per building block under `agent/`. Do not add files elsewhere in `agent/`,
-  and add every new file to the Structure tree below (`tests/test_layout.py`).
-- Middleware order in `agent/orchestration/graph.py` is load-bearing; do not reorder it
-  without reading `agent/orchestration/reliability.py`.
-- Every decision taken from model output goes through `agent/model/structured.py`.
-- Never commit a key or a `.env` file (`scripts/check_secrets.py`, `tests/test_no_secrets.py`).
-- Run `ruff check .` and `python -m pytest -q` after every change.
+**Rules for a coding agent.** They live in [`AGENTS.md`](AGENTS.md), the file coding
+agents load automatically when they open a repo. It holds eight hard rules, each pinned by
+a test, plus the commands to run after every change. A developer should read it too.
+Claude Code reads it natively from version 2.1.277; on an older version, tell it to read
+`AGENTS.md` first.
 
 ## Structure
 
@@ -123,6 +119,7 @@ LangGraphAgentTemplate/
 ├── langgraph.json                  LangGraph Studio / Platform entry points
 ├── pyproject.toml                  dependencies, ruff, pytest
 ├── .env.example                    every setting, with defaults
+├── AGENTS.md                       rules and commands for coding agents (loaded automatically)
 ├── scripts/check_secrets.py        secret guard: blocks keys and .env files from git
 ├── .githooks/pre-commit            runs the secret guard before every commit
 ├── evals/                          cases.jsonl (answer + tool path), runner, `python -m evals`
