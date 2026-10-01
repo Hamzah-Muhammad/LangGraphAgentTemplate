@@ -126,6 +126,7 @@ LangGraphAgentTemplate/
 ├── evals/                          cases.jsonl (answer + tool path), runner, `python -m evals`
 ├── tests/                          fake-model tests, no key or network needed
 ├── docs/PATTERNS.md                when to use each mode, its cost, how it fails
+├── docs/DEPLOY.md                  server, auth, Postgres, build, pre-launch checklist
 └── .github/workflows/ci.yml        ruff + pytest on every push
 ```
 

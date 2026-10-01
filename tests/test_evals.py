@@ -3,6 +3,7 @@
 import asyncio
 
 from langchain_core.messages import AIMessage
+from langgraph.store.memory import InMemoryStore
 
 from agent.orchestration.graph import build_graph
 from evals.runner import Case, check, fresh_checkpointer, load_cases, run_all, tool_trajectory
@@ -19,6 +20,7 @@ def test_all_eval_cases_pass_with_fake_model():
             fake_model(*script, structured=case.fake_structured),
             mode=case.mode,
             checkpointer=fresh_checkpointer(),
+            store=InMemoryStore(),
             include_mcp=False,
         )
 
@@ -43,3 +45,37 @@ def test_tool_trajectory_reads_ai_tool_calls_in_order():
         AIMessage(content="done"),
     ]
     assert tool_trajectory(msgs) == ["a", "b"]
+
+
+# ------------------------------------------------------------ LLM judge
+
+
+def _judged(verdict):
+    from evals.runner import judge_answer
+
+    case = Case(id="j", input="q", judge="be plain")
+    return asyncio.run(judge_answer(fake_model(verdict), case, "an answer"))
+
+
+def test_judge_passes_only_on_a_clear_pass():
+    assert _judged("PASS\nplain and correct")[0] is True
+    assert _judged("pass")[0] is True
+    assert _judged("FAIL\ntoo much jargon")[0] is False
+    assert _judged("Looks fine to me")[0] is False  # unclear counts as a fail
+
+
+def test_a_failed_judge_fails_the_case_and_says_why():
+    from evals.runner import run_case
+
+    case = next(c for c in load_cases() if c.judge)
+
+    async def go(judge_model):
+        graph = await build_graph(
+            fake_model(case.fake_response), checkpointer=fresh_checkpointer(), include_mcp=False
+        )
+        return await run_case(graph, case, judge_model)
+
+    failed = asyncio.run(go(fake_model("FAIL\nuses jargon")))
+    assert not failed.passed and "judge: FAIL" in failed.reasons[-1]
+    assert asyncio.run(go(fake_model("PASS\nplain"))).passed
+    assert asyncio.run(go(None)).passed  # no judge model: the rubric is skipped, not failed

@@ -9,6 +9,10 @@ Each line of cases.jsonl is one case:
                          come in between). This is the trajectory check.
     forbid_tools         tool names that must NOT be called
     max_tool_calls       upper bound on total tool calls (catches loops)
+    judge                a rubric in plain words. A judge model (the grader model, else the
+                         primary) answers PASS or FAIL against it. For what substrings cannot
+                         check: tone, correctness of an explanation. Needs a judge model, so
+                         the fake-model tests skip it; `python -m evals` runs it.
     mode                 workflow mode to run the case in (default "simple")
     fake_structured      scripted structured-output answers for tests (route, plan...)
     fake_response        what the fake model answers in tests (no tool calls), or
@@ -51,6 +55,7 @@ class Case:
     expect_tools: list[str] = field(default_factory=list)
     forbid_tools: list[str] = field(default_factory=list)
     max_tool_calls: int | None = None
+    judge: str = ""
     mode: str = "simple"
     fake_structured: list | dict | None = None
     fake_response: str = ""
@@ -105,6 +110,23 @@ def check(case: Case, output: str, tools: list[str]) -> CaseResult:
     return CaseResult(case, output, tools, not reasons, reasons)
 
 
+JUDGE_PROMPT = (
+    "You grade an AI answer against a rubric. Be strict. Reply with exactly PASS or FAIL "
+    "on the first line, then one short reason on the second."
+)
+
+
+async def judge_answer(model, case: Case, output: str) -> tuple[bool, str]:
+    """Ask a judge model. Anything that is not a clear PASS counts as FAIL."""
+    reply = await model.ainvoke([
+        ("system", JUDGE_PROMPT),
+        ("human", f"Request:\n{case.input}\n\nRubric:\n{case.judge}\n\nAnswer:\n{output}"),
+    ])
+    text = str(reply.content).strip()
+    first = text.splitlines()[0].strip().upper() if text else ""
+    return first.startswith("PASS"), text
+
+
 def _approve_all(interrupts) -> Command:
     resume = {}
     for i in interrupts:
@@ -113,7 +135,7 @@ def _approve_all(interrupts) -> Command:
     return Command(resume=resume)
 
 
-async def run_case(graph, case: Case) -> CaseResult:
+async def run_case(graph, case: Case, judge_model=None) -> CaseResult:
     trace = ToolTrace()
     config = {"configurable": {"thread_id": f"eval-{case.id}"}, "callbacks": [trace]}
     context = Context(user_id="eval")
@@ -123,16 +145,22 @@ async def run_case(graph, case: Case) -> CaseResult:
         if not result.get("__interrupt__"):
             break
         payload = _approve_all(result["__interrupt__"])
-    messages = result["messages"]
-    return check(case, str(messages[-1].content), trace.names)
+    output = str(result["messages"][-1].content)
+    outcome = check(case, output, trace.names)
+    if case.judge and judge_model is not None:
+        ok, verdict = await judge_answer(judge_model, case, output)
+        if not ok:
+            outcome.reasons.append(f"judge: {verdict[:200]}")
+            outcome.passed = False
+    return outcome
 
 
-async def run_all(graph_factory, cases: list[Case]) -> list[CaseResult]:
+async def run_all(graph_factory, cases: list[Case], judge_model=None) -> list[CaseResult]:
     """graph_factory(case) -> compiled graph. A fresh graph per case keeps them isolated."""
     results = []
     for case in cases:
         graph = await graph_factory(case)
-        results.append(await run_case(graph, case))
+        results.append(await run_case(graph, case, judge_model))
     return results
 
 
