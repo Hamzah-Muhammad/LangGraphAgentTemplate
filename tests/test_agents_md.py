@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TEXT = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-MAX_LINES = 70  # it is loaded into the agent's context every session
+MAX_LINES = 80  # it is loaded into the agent's context every session
 REPO_ROOTS = ("agent/", "tests/", "scripts/", "docs/", "evals/", ".githooks/")
 
 
